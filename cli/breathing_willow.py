@@ -17,6 +17,19 @@ def log_prompt(title: str, task_link: str, commit_link: str | None = None) -> No
         fh.write(row)
 
 
+def mark_vc_step(note: str) -> None:
+    """Append a vc loop step entry to meta/vc-loop.md."""
+    log_path = Path(__file__).resolve().parent.parent / "meta" / "vc-loop.md"
+    if not log_path.exists():
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text("| Timestamp | Note |\n|-----------|------|\n")
+
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    row = f"| {timestamp} | {note} |\n"
+    with log_path.open("a") as fh:
+        fh.write(row)
+
+
 def get_version():
     version_file = Path(__file__).resolve().parent.parent / "VERSION.md"
     if version_file.exists():
@@ -44,6 +57,11 @@ def main(argv=None):
     log_parser.add_argument("--link", required=True, help="codex task link")
     log_parser.add_argument("--commit", help="commit or PR link")
 
+    step_parser = subparsers.add_parser(
+        "vc-step", help="record a quick vc loop step"
+    )
+    step_parser.add_argument("note", help="short note for the step")
+
     args = parser.parse_args(argv)
     version = get_version()
 
@@ -53,6 +71,8 @@ def main(argv=None):
 
     if args.command == "log-prompt":
         log_prompt(args.title, args.link, args.commit)
+    elif args.command == "vc-step":
+        mark_vc_step(args.note)
 
 
 if __name__ == "__main__":
