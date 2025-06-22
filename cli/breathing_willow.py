@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone
+import subprocess
 
 
 def log_prompt(title: str, task_link: str, commit_link: str | None = None) -> None:
@@ -62,6 +63,16 @@ def main(argv=None):
     )
     step_parser.add_argument("note", help="short note for the step")
 
+    docs_parser = subparsers.add_parser(
+        "docs", help="build and preview the documentation"
+    )
+    docs_parser.add_argument(
+        "--host", default="127.0.0.1", help="host to bind (default: 127.0.0.1)"
+    )
+    docs_parser.add_argument(
+        "--port", default="8000", help="port to serve on (default: 8000)"
+    )
+
     args = parser.parse_args(argv)
     version = get_version()
 
@@ -73,6 +84,13 @@ def main(argv=None):
         log_prompt(args.title, args.link, args.commit)
     elif args.command == "vc-step":
         mark_vc_step(args.note)
+    elif args.command == "docs":
+        host = args.host
+        port = args.port
+        url = f"http://{host}:{port}"
+        print(f"Serving docs at {url} (live reload). Press Ctrl+C to stop.")
+        cmd = ["mkdocs", "serve", "--dev-addr", f"{host}:{port}"]
+        subprocess.run(cmd, check=True)
 
 
 if __name__ == "__main__":
