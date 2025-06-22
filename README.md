@@ -40,6 +40,16 @@ You can check the project version with:
 ./breathing-willow version
 ```
 
+## Documentation
+
+The project now ships with a lightweight docs site powered by MkDocs.
+Browse the latest version on GitHub Pages or preview locally with:
+
+```bash
+./preview-docs.sh
+```
+
+
 
 ## What to Try Next
 
