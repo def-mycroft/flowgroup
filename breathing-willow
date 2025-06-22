@@ -16,7 +16,10 @@ def main() -> None:
     if args.version:
         print(f"breathing-willow version {__version__}")
         return
-    parser.print_help()
+
+    # Import CLI and run
+    from breathing_willow.cli import main as cli_main
+    cli_main()
 
 
 if __name__ == "__main__":
