@@ -5,5 +5,6 @@ nav:
   - Home: index.md
   - What is Tide?: what-is-tide.md
   - Outline: _outline.md
+  - Glossary: glossary.md
 theme:
   name: material
