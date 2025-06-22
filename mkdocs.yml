@@ -1,0 +1,8 @@
+site_name: Tide Docs
+site_description: Documentation for the Tide project
+site_url: https://example.com
+nav:
+  - Home: index.md
+  - Outline: _outline.md
+theme:
+  name: material
