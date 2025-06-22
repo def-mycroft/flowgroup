@@ -43,14 +43,20 @@ You can check the project version with:
 ## Documentation
 
 The project now ships with a lightweight docs site powered by MkDocs.
-Browse the latest version on GitHub Pages or preview locally with:
+Install the docs requirements once with:
 
 ```bash
-./preview-docs.sh
+pip install -r requirements-docs.txt
 ```
 
+Then preview the docs locally with our CLI:
 
+```bash
+breathing-willow docs
+```
 
+This command runs `mkdocs serve` with live reload and prints the local URL
+(`http://127.0.0.1:8000`) so you can open it in your browser.
 ## What to Try Next
 
 - Sketch your own agent by adding a simple Python script in `agents/` (directory coming soon).
