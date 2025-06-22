@@ -32,6 +32,14 @@ $ bash zzero-dev-env-setup.sh
 ```
 
 There are no strict dependencies yet, but a Python environment with `pytest` installed will help you run future tests.
+## CLI Quick Start
+
+You can check the project version with:
+
+```bash
+./breathing-willow version
+```
+
 
 ## What to Try Next
 
