@@ -27,6 +27,9 @@ This repo is still rough around the edges. To get started:
 $ git clone <repo-url>
 $ cd breathing-willow
 
+# install in editable mode
+$ pip install -e .
+
 # if you plan to run the development helper script
 $ bash zzero-dev-env-setup.sh
 ```
