@@ -46,6 +46,7 @@ You can check the project version with:
 - Sketch your own agent by adding a simple Python script in `agents/` (directory coming soon).
 - Experiment with the dev helper script to see the workflow.
 - Open issues or pull requests with ideas, questions, or early contributions.
+- Track codex prompts by running `breathing-willow log-prompt`.
 
 We welcome experimentation. This repo is a space to iterate quickly and capture useful patterns. Let’s keep the energy flowing!
 
