@@ -1,0 +1,43 @@
+# Breathing Willow
+
+**Breathing Willow** is an experimental playground for rapid prototyping of flow-based AI agent systems. We are currently in phase **L0.1**, focusing on setting up the repo, bootstrapping agent definitions, and sketching out the CLI.
+
+## Purpose
+
+This project explores how lightweight agent tools can be composed into flexible flows. The goal is to make it easy to mix and match small utilities into powerful pipelines, eventually leading to an approachable framework for building AI-driven tasks.
+
+## Looking Ahead to 1.0
+
+Version 1.0 aims to provide:
+
+- A streamlined CLI that can define and execute complex agent flows.
+- Modular agent definitions with reusable templates.
+- Extensible hooks for data ingestion and output formatting.
+- Examples and guides to help contributors craft their own flow-based workflows.
+
+We are not there yet, but each commit brings us closer.
+
+## Early Setup
+
+This repo is still rough around the edges. To get started:
+
+```bash
+# clone the repo
+# (replace with your fork or clone path)
+$ git clone <repo-url>
+$ cd breathing-willow
+
+# if you plan to run the development helper script
+$ bash zzero-dev-env-setup.sh
+```
+
+There are no strict dependencies yet, but a Python environment with `pytest` installed will help you run future tests.
+
+## What to Try Next
+
+- Sketch your own agent by adding a simple Python script in `agents/` (directory coming soon).
+- Experiment with the dev helper script to see the workflow.
+- Open issues or pull requests with ideas, questions, or early contributions.
+
+We welcome experimentation. This repo is a space to iterate quickly and capture useful patterns. Let’s keep the energy flowing!
+
