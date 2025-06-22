@@ -18,7 +18,7 @@ def main() -> None:
         return
 
     # Import CLI and run
-    from breathing_willow.cli import main as cli_main
+    from breathing_willow_cli.breathing_willow import main as cli_main
     cli_main()
 
 
