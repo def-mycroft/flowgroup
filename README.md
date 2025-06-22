@@ -40,7 +40,7 @@ There are no strict dependencies yet, but a Python environment with `pytest` ins
 You can check the project version with:
 
 ```bash
-./breathing-willow version
+breathing-willow version
 ```
 
 ## Documentation
