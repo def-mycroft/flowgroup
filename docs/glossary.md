@@ -14,5 +14,7 @@ Here's a lighthearted list of terms that pop up around Tide. Keep it handy when 
 - **Trigger** – an event or prompt that kicks off a fresh action or branch in the flow.
 - **Quick Save** – a mini checkpoint for when you want to test something risky without losing your spot.
 - **Vibe Check** – a pause to sense how things are going. Adjust the flow if it feels off so everyone stays in sync.
+- **Ripple** – a quick reaction to new info that tweaks the flow without throwing it off balance.
+- **Waveform** – the overall pattern of the conversation. A smooth waveform means everyone is in sync.
 
 Enjoy the journey! These definitions should make it easier to dive into the rest of the docs with confidence.
