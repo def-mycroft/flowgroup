@@ -30,26 +30,57 @@ def _tag_cloud(text: str, max_len: int = 500) -> str:
     return cloud[:max_len]
 
 
-def append_shaping_log(file_path: Path) -> None:
+def _tokens(text: str) -> list[str]:
+    return re.findall(r"\b\w+\b", text.lower())
+
+
+def _all_tokens_in_log(log_text: str) -> set[str]:
+    tokens: set[str] = set()
+    for match in re.findall(r"\*\*Tag Cloud:\*\*\s*\n([\s\S]+?)\n---", log_text):
+        tokens.update(_tokens(match))
+    return tokens
+
+
+def _last_points(log_text: str) -> int:
+    m = re.search(r"## Shaping Log \u2014 .*? \u2014 (\d+) pts", log_text)
+    return int(m.group(1)) if m else 0
+
+
+def append_shaping_log(file_path: Path, clusters: list[list[str]] | None = None) -> None:
     log_file = Path(os.environ.get("WILLOW_SHAPING_LOG", "/l/obs-chaotic/willow-shaping.md"))
     log_file.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     text = file_path.read_text()
+    prev_text = log_file.read_text() if log_file.exists() else ""
+
+    previous_tokens = _all_tokens_in_log(prev_text)
+    current_tokens = set(_tokens(text))
+    new_terms = len(current_tokens - previous_tokens)
+    volume = len(current_tokens)
+    run_points = volume + new_terms if new_terms else 0
+    total_points = _last_points(prev_text) + run_points
+
     uuids = set(_extract_uuids(file_path.name) + _extract_uuids(text))
     uuid_str = ", ".join(sorted(uuids)) if uuids else ""
+
     entry = (
-        f"## Shaping Log — {now}\n\n"
+        f"## Shaping Log — {now} — {total_points} pts\n\n"
         f"**File:** {file_path}  \n"
         f"**Filename:** {file_path.name}  \n"
         f"**UUIDs:** {uuid_str}  \n"
+        f"**Points:** {total_points}  \n"
+    )
+
+    if clusters:
+        cluster_lines = [f"- Cluster {i+1}: {' '.join(c)}  " for i, c in enumerate(clusters)]
+        entry += "**Top Concepts:**  \n" + "\n".join(cluster_lines) + "\n"
+
+    entry += (
         f"**Tag Cloud:**  \n"
         f"{_tag_cloud(text)}\n\n---\n"
     )
-    if log_file.exists():
-        prev = log_file.read_text()
-    else:
-        prev = ""
-    log_file.write_text(entry + prev)
+
+    log_file.write_text(entry + prev_text)
 
 
 def save_snapshot(src: Path, snapshot_dir: Path | None = None) -> Path:
@@ -188,7 +219,8 @@ def main(argv=None):
         wg = WillowGrowth(graph_path=args.graph)
         wg.submit_document(args.file)
         wg.visualize(args.visual_archive)
-        append_shaping_log(src)
+        clusters = wg.cluster_terms()
+        append_shaping_log(src, clusters)
 
 
 if __name__ == "__main__":
