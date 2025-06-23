@@ -147,8 +147,10 @@ class WillowGrowth:
                 if data.get('shaped'):
                     label = data.get('sentence', nid)
                 else:
-                    label = f"{nid}\n{','.join(data.get('terms', [])[:5])}"
-                net.add_node(nid, label='', title=label)
+                    label = ",".join(data.get('terms', [])[:5])
+                # keep the uid in the tooltip for reference
+                title = nid
+                net.add_node(nid, label=label, title=title)
             for u, v, d in self.graph.edges(data=True):
                 net.add_edge(u, v, value=d.get('weight', 1))
             if len(self.graph.nodes) == 0:

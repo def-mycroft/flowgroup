@@ -2,6 +2,9 @@ import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 import subprocess
+from typing import Sequence
+
+from breathing_willow.willow_viz import WillowGrowth
 
 
 def log_prompt(title: str, task_link: str, commit_link: str | None = None) -> None:
@@ -73,6 +76,26 @@ def main(argv=None):
         "--port", default="8000", help="port to serve on (default: 8000)"
     )
 
+    update_parser = subparsers.add_parser(
+        "update-net", help="add a document to the graph and render"
+    )
+    update_parser.add_argument(
+        "-f",
+        "--file",
+        required=True,
+        help="path to the document to ingest",
+    )
+    update_parser.add_argument(
+        "--visual-archive",
+        required=True,
+        help="path to write the visualization HTML",
+    )
+    update_parser.add_argument(
+        "--graph",
+        default="willow_growth_v5.json",
+        help="path to persistent graph (default: willow_growth_v5.json)",
+    )
+
     args = parser.parse_args(argv)
     version = get_version()
 
@@ -91,7 +114,12 @@ def main(argv=None):
         print(f"Serving docs at {url} (live reload). Press Ctrl+C to stop.")
         cmd = ["mkdocs", "serve", "--dev-addr", f"{host}:{port}"]
         subprocess.run(cmd, check=True)
+    elif args.command == "update-net":
+        wg = WillowGrowth(graph_path=args.graph)
+        wg.submit_document(args.file)
+        wg.visualize(args.visual_archive)
 
 
 if __name__ == "__main__":
     main()
+
