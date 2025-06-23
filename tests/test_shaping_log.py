@@ -23,7 +23,6 @@ def test_update_net_shaping_log(tmp_path, monkeypatch):
         str(doc),
     ]
     cli_main(argv)
-
     first = log_file.read_text()
     assert str(doc) in first
     assert "shape.txt" in first

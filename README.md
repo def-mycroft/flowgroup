@@ -66,15 +66,7 @@ This command runs `mkdocs serve` with live reload and prints the local URL
 Running `breathing-willow update-net -f <file>` ingests a document into the
 word network. Each run prepends an entry to the shaping log located at
 `/l/obs-chaotic/willow-shaping.md` (or the path from the `WILLOW_SHAPING_LOG`
-environment variable).
 
-Entries contain the source path, detected UUIDs, an accumulating points total
-and now a short list of "Top Concepts" derived from clustering the current
-network. Points only grow when new terms are introduced, rewarding variety and
-volume in the ingested text. The tag cloud shows the high-frequency terms and
-the visualization adds nodes with their counts as the network expands. To keep
-the HTML viewer responsive, only the top 150 words are included in the
-visualization.
 ## What to Try Next
 
 - Sketch your own agent by adding a simple Python script in `agents/` (directory coming soon).

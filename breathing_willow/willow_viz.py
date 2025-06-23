@@ -167,7 +167,7 @@ class WillowGrowth:
 
             word_edges = {}
             for _, data in self.graph.nodes(data=True):
-                terms = [t for t in data.get('terms', []) if t in allowed]
+      
                 for i in range(len(terms)):
                     for j in range(i + 1, len(terms)):
                         pair = tuple(sorted((terms[i], terms[j])))
@@ -179,6 +179,7 @@ class WillowGrowth:
             for (a, b), weight in word_edges.items():
                 if a in allowed and b in allowed:
                     net.add_edge(a, b, value=weight)
+
 
             if len(self.graph.nodes) == 0:
                 print("⚠️ Graph empty — nothing to render.")

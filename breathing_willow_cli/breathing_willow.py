@@ -8,15 +8,12 @@ import subprocess
 from typing import Sequence
 import uuid
 
-
 UUID_RE = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 )
 
-
 def _extract_uuids(text: str) -> list[str]:
     return UUID_RE.findall(text)
-
 
 def _tag_cloud(text: str, max_len: int = 500) -> str:
     tokens = re.findall(r"\b\w+\b", text.lower())
@@ -29,10 +26,8 @@ def _tag_cloud(text: str, max_len: int = 500) -> str:
     cloud = " ".join(words)
     return cloud[:max_len]
 
-
 def _tokens(text: str) -> list[str]:
     return re.findall(r"\b\w+\b", text.lower())
-
 
 def _all_tokens_in_log(log_text: str) -> set[str]:
     tokens: set[str] = set()
@@ -40,11 +35,9 @@ def _all_tokens_in_log(log_text: str) -> set[str]:
         tokens.update(_tokens(match))
     return tokens
 
-
 def _last_points(log_text: str) -> int:
     m = re.search(r"## Shaping Log \u2014 .*? \u2014 (\d+) pts", log_text)
     return int(m.group(1)) if m else 0
-
 
 def append_shaping_log(file_path: Path, clusters: list[list[str]] | None = None) -> None:
     log_file = Path(os.environ.get("WILLOW_SHAPING_LOG", "/l/obs-chaotic/willow-shaping.md"))
@@ -82,7 +75,6 @@ def append_shaping_log(file_path: Path, clusters: list[list[str]] | None = None)
 
     log_file.write_text(entry + prev_text)
 
-
 def save_snapshot(src: Path, snapshot_dir: Path | None = None) -> Path:
     """Save a snapshot copy of ``src`` with UUID and timestamp header."""
     dest_dir = snapshot_dir or src.parent
@@ -100,7 +92,6 @@ def save_snapshot(src: Path, snapshot_dir: Path | None = None) -> Path:
 
 from breathing_willow.willow_viz import WillowGrowth
 
-
 def log_prompt(title: str, task_link: str, commit_link: str | None = None) -> None:
     """Append a prompt entry to the meta/prompt-log.md file."""
     log_path = Path(__file__).resolve().parent.parent / "meta" / "prompt-log.md"
@@ -114,7 +105,6 @@ def log_prompt(title: str, task_link: str, commit_link: str | None = None) -> No
     with log_path.open("a") as fh:
         fh.write(row)
 
-
 def mark_vc_step(note: str) -> None:
     """Append a vc loop step entry to meta/vc-loop.md."""
     log_path = Path(__file__).resolve().parent.parent / "meta" / "vc-loop.md"
@@ -127,7 +117,6 @@ def mark_vc_step(note: str) -> None:
     with log_path.open("a") as fh:
         fh.write(row)
 
-
 def get_version():
     version_file = Path(__file__).resolve().parent.parent / "VERSION.md"
     if version_file.exists():
@@ -136,7 +125,6 @@ def get_version():
             if line.startswith("vc"):
                 return line.split()[0]
     return "0.0.0"
-
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
@@ -222,7 +210,5 @@ def main(argv=None):
         clusters = wg.cluster_terms()
         append_shaping_log(src, clusters)
 
-
 if __name__ == "__main__":
     main()
-
