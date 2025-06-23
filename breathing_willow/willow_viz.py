@@ -1,4 +1,4 @@
-# willow_growth_v4.py
+# willow_growth_v5.py
 
 import hashlib
 import json
@@ -18,7 +18,7 @@ except ImportError:
     word_tokenize = None
 
 class WillowGrowth:
-    def __init__(self, graph_path='willow_growth_v4.json'):
+    def __init__(self, graph_path='willow_growth_v5.json'):
         self.graph_path = Path(graph_path)
         if self.graph_path.exists():
             self.load_graph()
@@ -107,7 +107,13 @@ class WillowGrowth:
     def visualize(self, output='willow_net.html'):
         try:
             from pyvis.network import Network
-            net = Network(height='600px', width='100%', notebook=False)
+            net = Network(
+                height='600px',
+                width='100%',
+                notebook=False,
+                bgcolor='#000000',
+                font_color='white'
+            )
             net.barnes_hut(
                 gravity=-1200,
                 spring_length=200,
@@ -117,12 +123,14 @@ class WillowGrowth:
             net.set_options("""
                 var options = {
                   "nodes": {
-                    "shape": "box",
-                    "color": {"background": "white", "border": "black"},
-                    "font": {"color": "black"}
+                    "shape": "circle",
+                    "size": 5,
+                    "color": {"background": "white", "border": "white"},
+                    "font": {"color": "white", "size": 8}
                   },
                   "edges": {
-                    "color": {"color": "black"}
+                    "color": {"color": "rgba(255,255,255,0.3)"},
+                    "width": 1
                   },
                   "physics": {
                     "enabled": true,
@@ -140,7 +148,7 @@ class WillowGrowth:
                     label = data.get('sentence', nid)
                 else:
                     label = f"{nid}\n{','.join(data.get('terms', [])[:5])}"
-                net.add_node(nid, label=label)
+                net.add_node(nid, label='', title=label)
             for u, v, d in self.graph.edges(data=True):
                 net.add_edge(u, v, value=d.get('weight', 1))
             if len(self.graph.nodes) == 0:
