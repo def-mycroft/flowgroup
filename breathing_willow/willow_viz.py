@@ -9,6 +9,8 @@ import gensim
 from gensim import corpora
 from gensim.models import TfidfModel
 import networkx as nx
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
 
 try:
     import nltk
@@ -116,7 +118,7 @@ class WillowGrowth:
         self.save_graph()
         print(f"✏️ Node {uid} shaped.")
 
-    def visualize(self, output='willow_net.html'):
+    def visualize(self, output='willow_net.html', max_words: int = 150):
         try:
             from pyvis.network import Network
             net = Network(
@@ -155,16 +157,29 @@ class WillowGrowth:
                   }
                 }
             """)
-            for nid, data in self.graph.nodes(data=True):
-                if data.get('shaped'):
-                    label = data.get('sentence', nid)
-                else:
-                    label = ",".join(data.get('terms', [])[:5])
-                # keep the uid in the tooltip for reference
-                title = nid
-                net.add_node(nid, label=label, title=title)
-            for u, v, d in self.graph.edges(data=True):
-                net.add_edge(u, v, value=d.get('weight', 1))
+            word_counts = {}
+            for _, data in self.graph.nodes(data=True):
+                for w in data.get('terms', []):
+                    word_counts[w] = word_counts.get(w, 0) + 1
+
+            top_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)[:max_words]
+            allowed = {w for w, _ in top_words}
+
+            word_edges = {}
+            for _, data in self.graph.nodes(data=True):
+                terms = [t for t in data.get('terms', []) if t in allowed]
+                for i in range(len(terms)):
+                    for j in range(i + 1, len(terms)):
+                        pair = tuple(sorted((terms[i], terms[j])))
+                        word_edges[pair] = word_edges.get(pair, 0) + 1
+
+            for word, count in top_words:
+                net.add_node(word, label=f"{word} ({count})", value=count)
+
+            for (a, b), weight in word_edges.items():
+                if a in allowed and b in allowed:
+                    net.add_edge(a, b, value=weight)
+
             if len(self.graph.nodes) == 0:
                 print("⚠️ Graph empty — nothing to render.")
             else:
@@ -172,6 +187,29 @@ class WillowGrowth:
                 print(f"🌱 Visualization saved to {output}")
         except ImportError:
             print("⚠️ pyvis not installed — skipping visualization.")
+
+    def cluster_terms(self, max_clusters: int = 5) -> list[list[str]]:
+        """Return conceptual clusters of the current network."""
+        texts = [" ".join(data.get("terms", [])) for _, data in self.graph.nodes(data=True)]
+        if not texts:
+            return []
+
+        n_clusters = min(max(3, len(texts)), max_clusters)
+        n_clusters = min(n_clusters, len(texts))
+
+        vectorizer = TfidfVectorizer(stop_words="english")
+        X = vectorizer.fit_transform(texts)
+        if n_clusters == 0:
+            return []
+        km = KMeans(n_clusters=n_clusters, n_init="auto", random_state=42)
+        km.fit(X)
+        terms = vectorizer.get_feature_names_out()
+        clusters: list[list[str]] = []
+        for i in range(n_clusters):
+            center = km.cluster_centers_[i]
+            top_ids = center.argsort()[-5:][::-1]
+            clusters.append([terms[idx] for idx in top_ids])
+        return clusters
 
     def submit_docs(self, files):
         for fp in files:
