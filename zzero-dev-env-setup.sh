@@ -56,6 +56,7 @@ fi
 #vim -c "delmarks D" -c "mark D" -c "wq" "/l/m/docs/CONTENTS.md"
 
 # --- Set aliases ---
-#alias zls=j
-#alias cli=
+alias willow=/home/zero/miniconda3/envs/zero/bin/breathing-willow
+alias w=/home/zero/miniconda3/envs/zero/bin/breathing-willow
+alias cli=breathing-willow
 

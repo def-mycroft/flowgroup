@@ -1,4 +1,7 @@
 
+lib/*
+*json
+
 m
 vimfolds.py
 notebooks/*png
