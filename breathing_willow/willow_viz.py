@@ -155,16 +155,25 @@ class WillowGrowth:
                   }
                 }
             """)
-            for nid, data in self.graph.nodes(data=True):
-                if data.get('shaped'):
-                    label = data.get('sentence', nid)
-                else:
-                    label = ",".join(data.get('terms', [])[:5])
-                # keep the uid in the tooltip for reference
-                title = nid
-                net.add_node(nid, label=label, title=title)
-            for u, v, d in self.graph.edges(data=True):
-                net.add_edge(u, v, value=d.get('weight', 1))
+            word_counts = {}
+            for _, data in self.graph.nodes(data=True):
+                for w in data.get('terms', []):
+                    word_counts[w] = word_counts.get(w, 0) + 1
+
+            word_edges = {}
+            for _, data in self.graph.nodes(data=True):
+                terms = data.get('terms', [])
+                for i in range(len(terms)):
+                    for j in range(i + 1, len(terms)):
+                        pair = tuple(sorted((terms[i], terms[j])))
+                        word_edges[pair] = word_edges.get(pair, 0) + 1
+
+            for word, count in word_counts.items():
+                net.add_node(word, label=f"{word} ({count})", value=count)
+
+            for (a, b), weight in word_edges.items():
+                net.add_edge(a, b, value=weight)
+
             if len(self.graph.nodes) == 0:
                 print("⚠️ Graph empty — nothing to render.")
             else:
