@@ -167,7 +167,7 @@ class WillowGrowth:
 
             word_edges = {}
             for _, data in self.graph.nodes(data=True):
-      
+                terms = data.get('terms', [])
                 for i in range(len(terms)):
                     for j in range(i + 1, len(terms)):
                         pair = tuple(sorted((terms[i], terms[j])))
