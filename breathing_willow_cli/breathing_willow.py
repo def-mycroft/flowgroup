@@ -1,10 +1,55 @@
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone
+import os
+import re
 from zoneinfo import ZoneInfo
 import subprocess
 from typing import Sequence
 import uuid
+
+
+UUID_RE = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+
+
+def _extract_uuids(text: str) -> list[str]:
+    return UUID_RE.findall(text)
+
+
+def _tag_cloud(text: str, max_len: int = 500) -> str:
+    tokens = re.findall(r"\b\w+\b", text.lower())
+    freq = {}
+    for t in tokens:
+        freq[t] = freq.get(t, 0) + 1
+    words = []
+    for word, count in sorted(freq.items(), key=lambda x: (-x[1], x[0])):
+        words.extend([word] * count)
+    cloud = " ".join(words)
+    return cloud[:max_len]
+
+
+def append_shaping_log(file_path: Path) -> None:
+    log_file = Path(os.environ.get("WILLOW_SHAPING_LOG", "/l/obs-chaotic/willow-shaping.md"))
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    text = file_path.read_text()
+    uuids = set(_extract_uuids(file_path.name) + _extract_uuids(text))
+    uuid_str = ", ".join(sorted(uuids)) if uuids else ""
+    entry = (
+        f"## Shaping Log — {now}\n\n"
+        f"**File:** {file_path}  \n"
+        f"**Filename:** {file_path.name}  \n"
+        f"**UUIDs:** {uuid_str}  \n"
+        f"**Tag Cloud:**  \n"
+        f"{_tag_cloud(text)}\n\n---\n"
+    )
+    if log_file.exists():
+        prev = log_file.read_text()
+    else:
+        prev = ""
+    log_file.write_text(entry + prev)
 
 
 def save_snapshot(src: Path, snapshot_dir: Path | None = None) -> Path:
@@ -143,6 +188,7 @@ def main(argv=None):
         wg = WillowGrowth(graph_path=args.graph)
         wg.submit_document(args.file)
         wg.visualize(args.visual_archive)
+        append_shaping_log(src)
 
 
 if __name__ == "__main__":
