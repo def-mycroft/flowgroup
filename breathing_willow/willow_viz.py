@@ -75,7 +75,14 @@ class WillowGrowth:
                 freq[t] = freq.get(t, 0) + 1
             terms = sorted(freq, key=freq.get, reverse=True)[:20]
 
-        self.graph.add_node(uid, path=str(doc_path), terms=terms)
+        self.graph.add_node(
+            uid,
+            path=str(doc_path),
+            terms=terms,
+            sentence="",
+            paragraph="",
+            shaped=False,
+        )
 
         for nid, data in self.graph.nodes(data=True):
             if nid == uid:
@@ -87,11 +94,26 @@ class WillowGrowth:
         self.save_graph()
         print(f"🔄 {doc_path} → {uid} — {len(terms)} terms extracted.")
 
+    def shape_node(self, uid, sentence="", paragraph=""):
+        if uid not in self.graph:
+            print(f"⚠️ Node {uid} not found.")
+            return
+        self.graph.nodes[uid]["sentence"] = sentence
+        self.graph.nodes[uid]["paragraph"] = paragraph
+        self.graph.nodes[uid]["shaped"] = True
+        self.save_graph()
+        print(f"✏️ Node {uid} shaped.")
+
     def visualize(self, output='willow_net.html'):
         try:
             from pyvis.network import Network
             net = Network(height='600px', width='100%', notebook=False)
-            net.barnes_hut(gravity=-2000, damping=0.95)  # slow gentle drift
+            net.barnes_hut(
+                gravity=-1200,
+                spring_length=200,
+                spring_strength=0.01,
+                damping=0.9,
+            )
             net.set_options("""
                 var options = {
                   "nodes": {
@@ -105,16 +127,19 @@ class WillowGrowth:
                   "physics": {
                     "enabled": true,
                     "barnesHut": {
-                      "gravitationalConstant": -2000,
-                      "springLength": 100,
-                      "springConstant": 0.02,
-                      "damping": 0.95
+                      "gravitationalConstant": -1200,
+                      "springLength": 200,
+                      "springConstant": 0.01,
+                      "damping": 0.9
                     }
                   }
                 }
             """)
             for nid, data in self.graph.nodes(data=True):
-                label = f"{nid}\\n{','.join(data.get('terms', [])[:5])}"
+                if data.get('shaped'):
+                    label = data.get('sentence', nid)
+                else:
+                    label = f"{nid}\n{','.join(data.get('terms', [])[:5])}"
                 net.add_node(nid, label=label)
             for u, v, d in self.graph.edges(data=True):
                 net.add_edge(u, v, value=d.get('weight', 1))
