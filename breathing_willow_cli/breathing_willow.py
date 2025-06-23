@@ -36,7 +36,7 @@ def _tokens(text: str) -> list[str]:
 
 def _all_tokens_in_log(log_text: str) -> set[str]:
     tokens: set[str] = set()
-    for match in re.findall(r"Tag Cloud:\n([\s\S]+?)\n---", log_text):
+    for match in re.findall(r"\*\*Tag Cloud:\*\*\s*\n([\s\S]+?)\n---", log_text):
         tokens.update(_tokens(match))
     return tokens
 
@@ -46,7 +46,7 @@ def _last_points(log_text: str) -> int:
     return int(m.group(1)) if m else 0
 
 
-def append_shaping_log(file_path: Path) -> None:
+def append_shaping_log(file_path: Path, clusters: list[list[str]] | None = None) -> None:
     log_file = Path(os.environ.get("WILLOW_SHAPING_LOG", "/l/obs-chaotic/willow-shaping.md"))
     log_file.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -57,7 +57,7 @@ def append_shaping_log(file_path: Path) -> None:
     current_tokens = set(_tokens(text))
     new_terms = len(current_tokens - previous_tokens)
     volume = len(current_tokens)
-    run_points = volume + new_terms
+    run_points = volume + new_terms if new_terms else 0
     total_points = _last_points(prev_text) + run_points
 
     uuids = set(_extract_uuids(file_path.name) + _extract_uuids(text))
@@ -69,6 +69,13 @@ def append_shaping_log(file_path: Path) -> None:
         f"**Filename:** {file_path.name}  \n"
         f"**UUIDs:** {uuid_str}  \n"
         f"**Points:** {total_points}  \n"
+    )
+
+    if clusters:
+        cluster_lines = [f"- Cluster {i+1}: {' '.join(c)}  " for i, c in enumerate(clusters)]
+        entry += "**Top Concepts:**  \n" + "\n".join(cluster_lines) + "\n"
+
+    entry += (
         f"**Tag Cloud:**  \n"
         f"{_tag_cloud(text)}\n\n---\n"
     )
@@ -212,7 +219,8 @@ def main(argv=None):
         wg = WillowGrowth(graph_path=args.graph)
         wg.submit_document(args.file)
         wg.visualize(args.visual_archive)
-        append_shaping_log(src)
+        clusters = wg.cluster_terms()
+        append_shaping_log(src, clusters)
 
 
 if __name__ == "__main__":

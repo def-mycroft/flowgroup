@@ -9,6 +9,8 @@ import gensim
 from gensim import corpora
 from gensim.models import TfidfModel
 import networkx as nx
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
 
 try:
     import nltk
@@ -181,6 +183,29 @@ class WillowGrowth:
                 print(f"🌱 Visualization saved to {output}")
         except ImportError:
             print("⚠️ pyvis not installed — skipping visualization.")
+
+    def cluster_terms(self, max_clusters: int = 5) -> list[list[str]]:
+        """Return conceptual clusters of the current network."""
+        texts = [" ".join(data.get("terms", [])) for _, data in self.graph.nodes(data=True)]
+        if not texts:
+            return []
+
+        n_clusters = min(max(3, len(texts)), max_clusters)
+        n_clusters = min(n_clusters, len(texts))
+
+        vectorizer = TfidfVectorizer(stop_words="english")
+        X = vectorizer.fit_transform(texts)
+        if n_clusters == 0:
+            return []
+        km = KMeans(n_clusters=n_clusters, n_init="auto", random_state=42)
+        km.fit(X)
+        terms = vectorizer.get_feature_names_out()
+        clusters: list[list[str]] = []
+        for i in range(n_clusters):
+            center = km.cluster_centers_[i]
+            top_ids = center.argsort()[-5:][::-1]
+            clusters.append([terms[idx] for idx in top_ids])
+        return clusters
 
     def submit_docs(self, files):
         for fp in files:
