@@ -1,8 +1,26 @@
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import subprocess
 from typing import Sequence
+import uuid
+
+
+def save_snapshot(src: Path, snapshot_dir: Path | None = None) -> Path:
+    """Save a snapshot copy of ``src`` with UUID and timestamp header."""
+    dest_dir = snapshot_dir or src.parent
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    uid = uuid.uuid4()
+    dt = datetime.now(ZoneInfo("America/Denver"))
+    header = (
+        f"{uid}  \n"
+        f"{dt.strftime('%Y-%m-%d %H:%M:%S %z America/Denver')}  \n"
+        "\n***\n"
+    )
+    dest = dest_dir / f"{src.stem}-{uid}.md"
+    dest.write_text(header + src.read_text())
+    return dest
 
 from breathing_willow.willow_viz import WillowGrowth
 
@@ -95,6 +113,10 @@ def main(argv=None):
         default="willow_growth_v5.json",
         help="path to persistent graph (default: willow_growth_v5.json)",
     )
+    update_parser.add_argument(
+        "--snapshot-dir",
+        help="directory to save version snapshots (default: alongside file)",
+    )
 
     args = parser.parse_args(argv)
     version = get_version()
@@ -115,6 +137,9 @@ def main(argv=None):
         cmd = ["mkdocs", "serve", "--dev-addr", f"{host}:{port}"]
         subprocess.run(cmd, check=True)
     elif args.command == "update-net":
+        src = Path(args.file)
+        snap_dir = Path(args.snapshot_dir) if args.snapshot_dir else None
+        save_snapshot(src, snap_dir)
         wg = WillowGrowth(graph_path=args.graph)
         wg.submit_document(args.file)
         wg.visualize(args.visual_archive)
