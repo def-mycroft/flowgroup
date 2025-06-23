@@ -59,54 +59,64 @@ class WillowGrowth:
         return [t for t in tokens if t not in STOP_WORDS]
 
     def train_tfidf(self, texts):
+        """Train TF-IDF on provided texts."""
         tokenized = [self.tokenize(t) for t in texts]
         self.dictionary = corpora.Dictionary(tokenized)
         corpus = [self.dictionary.doc2bow(t) for t in tokenized]
         self.tfidf_model = TfidfModel(corpus)
         return corpus
 
+    def _summary_from_text(self, text: str) -> tuple[str, list[list[str]], list[str]]:
+        """Return a ~25 word summary, clusters and tokens for a document."""
+        sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
+        if not sentences:
+            return "", [], []
+        n_clusters = min(5, len(sentences))
+        vectorizer = TfidfVectorizer(stop_words="english")
+        X = vectorizer.fit_transform(sentences)
+        km = KMeans(n_clusters=n_clusters, n_init="auto", random_state=42)
+        km.fit(X)
+        terms = vectorizer.get_feature_names_out()
+        clusters: list[list[str]] = []
+        for i in range(n_clusters):
+            center = km.cluster_centers_[i]
+            top_idx = center.argsort()[-5:][::-1]
+            clusters.append([terms[idx] for idx in top_idx])
+        summary_words: list[str] = []
+        for c in clusters:
+            summary_words.extend(c)
+        summary = " ".join(summary_words[:50])
+        return summary, clusters, summary_words
+
     def submit_document(self, doc_path):
+        """Ingest a document as a single summary node."""
         text = Path(doc_path).read_text()
         uid = self._hash_content(text)[:8]
-        tokens = self.tokenize(text)
+        if not self.dictionary:
+            self.train_tfidf([text])
+
+        summary, clusters, tokens = self._summary_from_text(text)
         if not tokens:
             print(f"⚠️ Document {doc_path} has no tokens — skipping.")
             return
 
-        if not self.dictionary:
-            self.train_tfidf([text])
-
-        bow = self.dictionary.doc2bow(tokens)
-        tfidf = self.tfidf_model[bow]
-
-        if tfidf:
-            top_terms = sorted(tfidf, key=lambda x: -x[1])[:20]
-            terms = [self.dictionary[id] for id, _ in top_terms]
-        else:
-            # fallback: raw word count
-            freq = {}
-            for t in tokens:
-                freq[t] = freq.get(t, 0) + 1
-            terms = sorted(freq, key=freq.get, reverse=True)[:20]
-
         self.graph.add_node(
             uid,
             path=str(doc_path),
-            terms=terms,
-            sentence="",
-            paragraph="",
-            shaped=False,
+            summary=summary,
+            clusters=clusters,
+            tokens=tokens,
         )
 
         for nid, data in self.graph.nodes(data=True):
             if nid == uid:
                 continue
-            common = set(terms) & set(data.get('terms', []))
+            common = set(tokens) & set(data.get('tokens', []))
             if common:
                 self.graph.add_edge(uid, nid, weight=len(common))
 
         self.save_graph()
-        print(f"🔄 {doc_path} → {uid} — {len(terms)} terms extracted.")
+        print(f"🔄 {doc_path} → {uid} — {len(tokens)} summary tokens.")
 
     def shape_node(self, uid, sentence="", paragraph=""):
         if uid not in self.graph:
@@ -118,7 +128,8 @@ class WillowGrowth:
         self.save_graph()
         print(f"✏️ Node {uid} shaped.")
 
-    def visualize(self, output='willow_net.html', max_words: int = 150):
+    def visualize(self, output='willow_net.html'):
+        """Render the document graph."""
         try:
             from pyvis.network import Network
             net = Network(
@@ -137,10 +148,10 @@ class WillowGrowth:
             net.set_options("""
                 var options = {
                   "nodes": {
-                    "shape": "circle",
-                    "size": 5,
+                    "shape": "dot",
+                    "size": 10,
                     "color": {"background": "white", "border": "white"},
-                    "font": {"color": "white", "size": 8}
+                    "font": {"color": "white", "size": 10}
                   },
                   "edges": {
                     "color": {"color": "rgba(255,255,255,0.3)"},
@@ -157,29 +168,14 @@ class WillowGrowth:
                   }
                 }
             """)
-            word_counts = {}
-            for _, data in self.graph.nodes(data=True):
-                for w in data.get('terms', []):
-                    word_counts[w] = word_counts.get(w, 0) + 1
 
-            top_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)[:max_words]
-            allowed = {w for w, _ in top_words}
+            for nid, data in self.graph.nodes(data=True):
+                label = (data.get('summary') or '')[:100]
+                title = data.get('path', '')
+                net.add_node(nid, label=label, title=title)
 
-            word_edges = {}
-            for _, data in self.graph.nodes(data=True):
-                terms = data.get('terms', [])
-                for i in range(len(terms)):
-                    for j in range(i + 1, len(terms)):
-                        pair = tuple(sorted((terms[i], terms[j])))
-                        word_edges[pair] = word_edges.get(pair, 0) + 1
-
-            for word, count in top_words:
-                net.add_node(word, label=f"{word} ({count})", value=count)
-
-            for (a, b), weight in word_edges.items():
-                if a in allowed and b in allowed:
-                    net.add_edge(a, b, value=weight)
-
+            for a, b, edata in self.graph.edges(data=True):
+                net.add_edge(a, b, value=edata.get('weight', 1))
 
             if len(self.graph.nodes) == 0:
                 print("⚠️ Graph empty — nothing to render.")
@@ -191,7 +187,7 @@ class WillowGrowth:
 
     def cluster_terms(self, max_clusters: int = 5) -> list[list[str]]:
         """Return conceptual clusters of the current network."""
-        texts = [" ".join(data.get("terms", [])) for _, data in self.graph.nodes(data=True)]
+        texts = [" ".join(data.get("tokens", [])) for _, data in self.graph.nodes(data=True)]
         if not texts:
             return []
 
@@ -211,6 +207,28 @@ class WillowGrowth:
             top_ids = center.argsort()[-5:][::-1]
             clusters.append([terms[idx] for idx in top_ids])
         return clusters
+
+    def expand_node(self, uid: str, similarity_threshold: float = 0.3) -> None:
+        """Add edges from ``uid`` to similar documents based on token overlap."""
+        if uid not in self.graph:
+            print(f"⚠️ Node {uid} not found for expansion.")
+            return
+
+        tokens = set(self.graph.nodes[uid].get("tokens", []))
+        if not tokens:
+            return
+
+        for nid, data in self.graph.nodes(data=True):
+            if nid == uid or self.graph.has_edge(uid, nid):
+                continue
+            other = set(data.get("tokens", []))
+            if not other:
+                continue
+            overlap = len(tokens & other)
+            sim = overlap / max(len(tokens), len(other))
+            if sim >= similarity_threshold:
+                self.graph.add_edge(uid, nid, weight=overlap)
+        self.save_graph()
 
     def submit_docs(self, files):
         for fp in files:
