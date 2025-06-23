@@ -13,9 +13,20 @@ import networkx as nx
 try:
     import nltk
     nltk.download('punkt', quiet=True)
+    nltk.download('stopwords', quiet=True)
     from nltk.tokenize import word_tokenize
-except ImportError:
+    from nltk.corpus import stopwords as nltk_stopwords
+    STOP_WORDS = set(nltk_stopwords.words('english'))
+except Exception:  # missing nltk or corpus
     word_tokenize = None
+    STOP_WORDS = {
+        'a', 'an', 'the', 'and', 'or', 'but', 'if', 'while', 'of', 'at', 'by',
+        'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during',
+        'before', 'after', 'to', 'from', 'in', 'out', 'on', 'off', 'over', 'under',
+        'again', 'further', 'then', 'once', 'here', 'there', 'all', 'any', 'both',
+        'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not',
+        'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just'
+    }
 
 class WillowGrowth:
     def __init__(self, graph_path='willow_growth_v5.json'):
@@ -40,9 +51,10 @@ class WillowGrowth:
 
     def tokenize(self, text):
         if word_tokenize:
-            return [w.lower() for w in word_tokenize(text) if w.isalpha()]
+            tokens = [w.lower() for w in word_tokenize(text) if w.isalpha()]
         else:
-            return re.findall(r'\b[a-z]{2,}\b', text.lower())
+            tokens = re.findall(r'\b[a-z]{2,}\b', text.lower())
+        return [t for t in tokens if t not in STOP_WORDS]
 
     def train_tfidf(self, texts):
         tokenized = [self.tokenize(t) for t in texts]
