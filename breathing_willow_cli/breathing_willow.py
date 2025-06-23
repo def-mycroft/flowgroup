@@ -8,15 +8,12 @@ import subprocess
 from typing import Sequence
 import uuid
 
-
 UUID_RE = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 )
 
-
 def _extract_uuids(text: str) -> list[str]:
     return UUID_RE.findall(text)
-
 
 def _tag_cloud(text: str, max_len: int = 500) -> str:
     tokens = re.findall(r"\b\w+\b", text.lower())
@@ -29,24 +26,20 @@ def _tag_cloud(text: str, max_len: int = 500) -> str:
     cloud = " ".join(words)
     return cloud[:max_len]
 
-
 def _tokens(text: str) -> list[str]:
     return re.findall(r"\b\w+\b", text.lower())
 
-
 def _all_tokens_in_log(log_text: str) -> set[str]:
     tokens: set[str] = set()
-    for match in re.findall(r"Tag Cloud:\n([\s\S]+?)\n---", log_text):
+    for match in re.findall(r"\*\*Tag Cloud:\*\*\s*\n([\s\S]+?)\n---", log_text):
         tokens.update(_tokens(match))
     return tokens
-
 
 def _last_points(log_text: str) -> int:
     m = re.search(r"## Shaping Log \u2014 .*? \u2014 (\d+) pts", log_text)
     return int(m.group(1)) if m else 0
 
-
-def append_shaping_log(file_path: Path) -> None:
+def append_shaping_log(file_path: Path, clusters: list[list[str]] | None = None) -> None:
     log_file = Path(os.environ.get("WILLOW_SHAPING_LOG", "/l/obs-chaotic/willow-shaping.md"))
     log_file.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -57,7 +50,7 @@ def append_shaping_log(file_path: Path) -> None:
     current_tokens = set(_tokens(text))
     new_terms = len(current_tokens - previous_tokens)
     volume = len(current_tokens)
-    run_points = volume + new_terms
+    run_points = volume + new_terms if new_terms else 0
     total_points = _last_points(prev_text) + run_points
 
     uuids = set(_extract_uuids(file_path.name) + _extract_uuids(text))
@@ -69,12 +62,18 @@ def append_shaping_log(file_path: Path) -> None:
         f"**Filename:** {file_path.name}  \n"
         f"**UUIDs:** {uuid_str}  \n"
         f"**Points:** {total_points}  \n"
+    )
+
+    if clusters:
+        cluster_lines = [f"- Cluster {i+1}: {' '.join(c)}  " for i, c in enumerate(clusters)]
+        entry += "**Top Concepts:**  \n" + "\n".join(cluster_lines) + "\n"
+
+    entry += (
         f"**Tag Cloud:**  \n"
         f"{_tag_cloud(text)}\n\n---\n"
     )
 
     log_file.write_text(entry + prev_text)
-
 
 def save_snapshot(src: Path, snapshot_dir: Path | None = None) -> Path:
     """Save a snapshot copy of ``src`` with UUID and timestamp header."""
@@ -93,7 +92,6 @@ def save_snapshot(src: Path, snapshot_dir: Path | None = None) -> Path:
 
 from breathing_willow.willow_viz import WillowGrowth
 
-
 def log_prompt(title: str, task_link: str, commit_link: str | None = None) -> None:
     """Append a prompt entry to the meta/prompt-log.md file."""
     log_path = Path(__file__).resolve().parent.parent / "meta" / "prompt-log.md"
@@ -107,7 +105,6 @@ def log_prompt(title: str, task_link: str, commit_link: str | None = None) -> No
     with log_path.open("a") as fh:
         fh.write(row)
 
-
 def mark_vc_step(note: str) -> None:
     """Append a vc loop step entry to meta/vc-loop.md."""
     log_path = Path(__file__).resolve().parent.parent / "meta" / "vc-loop.md"
@@ -120,7 +117,6 @@ def mark_vc_step(note: str) -> None:
     with log_path.open("a") as fh:
         fh.write(row)
 
-
 def get_version():
     version_file = Path(__file__).resolve().parent.parent / "VERSION.md"
     if version_file.exists():
@@ -129,7 +125,6 @@ def get_version():
             if line.startswith("vc"):
                 return line.split()[0]
     return "0.0.0"
-
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
@@ -212,9 +207,8 @@ def main(argv=None):
         wg = WillowGrowth(graph_path=args.graph)
         wg.submit_document(args.file)
         wg.visualize(args.visual_archive)
-        append_shaping_log(src)
-
+        clusters = wg.cluster_terms()
+        append_shaping_log(src, clusters)
 
 if __name__ == "__main__":
     main()
-

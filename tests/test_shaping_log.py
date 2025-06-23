@@ -23,7 +23,6 @@ def test_update_net_shaping_log(tmp_path, monkeypatch):
         str(doc),
     ]
     cli_main(argv)
-
     first = log_file.read_text()
     assert str(doc) in first
     assert "shape.txt" in first
@@ -32,6 +31,7 @@ def test_update_net_shaping_log(tmp_path, monkeypatch):
     header = first.splitlines()[0]
     assert re.search(r"## Shaping Log \u2014 .* \u2014 \d+ pts", header)
     assert "**Points:" in first
+    assert "Top Concepts:" in first
     assert first.strip().endswith("---")
 
     cli_main(argv)
@@ -40,4 +40,4 @@ def test_update_net_shaping_log(tmp_path, monkeypatch):
     assert second.endswith(first)
     pts_first = int(re.search(r"(\d+) pts", first).group(1))
     pts_second = int(re.search(r"(\d+) pts", second).group(1))
-    assert pts_second > pts_first
+    assert pts_second == pts_first
