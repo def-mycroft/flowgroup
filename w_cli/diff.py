@@ -114,6 +114,33 @@ def cmd_diff(args: argparse.Namespace) -> None:
         print(log)
 
 
+def export_diff(root: str, window: str = '24h', back: str | None = None) -> str:
+    """Compute a conceptual diff and return formatted markdown log.
+
+    Parameters
+    ----------
+    root : str
+        Path to the root directory of documents.
+    window : str, optional
+        Size of the current analysis window (e.g. '24h', '7d').
+    back : str, optional
+        How far back to compare against (e.g. '48h', '14d').
+        If omitted, uses same size as `window`.
+
+    Returns
+    -------
+    str
+        Markdown-formatted conceptual diff log.
+    """
+    w = parse_duration(window)
+    b = parse_duration(back) if back else w
+    p_root = Path(root)
+    score = compute_diff(p_root, w, b)
+    start = datetime.now(timezone.utc) - w
+
+    return _markdown_log(score, p_root, start, datetime.now(timezone.utc))
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)

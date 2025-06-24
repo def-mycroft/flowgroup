@@ -15,5 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
+# NOTE: this what is being installed right now. 
 breathing-willow = "breathing_willow_cli.breathing_willow:main"
-w = "w_cli.diff:main"
+willow = "breathing_willow_cli.breathing_willow:main"
+

@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from w_cli import diff
 from datetime import datetime, timezone
 import os
 import re
@@ -127,6 +128,11 @@ def get_version():
     return "0.0.0"
 
 def main(argv=None):
+    """entry point for bw cli 
+
+    NOTE: this is the main cli entry point for the cli. 
+
+    """
     parser = argparse.ArgumentParser(
         prog="breathing-willow",
         description="Breathing Willow CLI"
@@ -137,6 +143,10 @@ def main(argv=None):
         help="show version and exit"
     )
     subparsers = parser.add_subparsers(dest="command")
+
+    sense_parser = subparsers.add_parser("sense", help="sense for pulse (diff)")
+    sense_parser.add_argument("--diff", required=False, help="diff",
+                              type=bool, default=False)
 
     log_parser = subparsers.add_parser("log-prompt", help="log a codex prompt")
     log_parser.add_argument("--title", required=True, help="prompt title")
@@ -189,7 +199,9 @@ def main(argv=None):
         print(f"Breathing Willow version {version} - CLI is alive!")
         return
 
-    if args.command == "log-prompt":
+    if args.command == "sense":
+        print('sense')
+    elif args.command == "log-prompt":
         log_prompt(args.title, args.link, args.commit)
     elif args.command == "vc-step":
         mark_vc_step(args.note)
