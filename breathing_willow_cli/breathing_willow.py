@@ -145,8 +145,11 @@ def main(argv=None):
     subparsers = parser.add_subparsers(dest="command")
 
     sense_parser = subparsers.add_parser("sense", help="sense for pulse (diff)")
-    sense_parser.add_argument("--diff", required=False, help="diff",
-                              type=bool, default=False)
+    sense_parser.add_argument(
+        "--diff",
+        action="store_true",
+        help="export conceptual diff report",
+    )
 
     log_parser = subparsers.add_parser("log-prompt", help="log a codex prompt")
     log_parser.add_argument("--title", required=True, help="prompt title")
@@ -200,7 +203,11 @@ def main(argv=None):
         return
 
     if args.command == "sense":
-        print('sense')
+        if args.diff:
+            report = diff.export_diff("/field")
+            Path("/field/field-update.md").write_text(report)
+        else:
+            print("sense")
     elif args.command == "log-prompt":
         log_prompt(args.title, args.link, args.commit)
     elif args.command == "vc-step":
