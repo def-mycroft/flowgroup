@@ -15,7 +15,9 @@ dependencies = [
 ]
 
 [project.scripts]
-# NOTE: this what is being installed right now. 
-breathing-willow = "breathing_willow_cli.breathing_willow:main"
 willow = "breathing_willow_cli.breathing_willow:main"
+
+[tool.setuptools.packages.find]
+include = ["breathing_willow*", "breathing_willow_cli*", "w_cli*"]
+exclude = ["tests*", "docs*", "agents*", "meta*"]
 

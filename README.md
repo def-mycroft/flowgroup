@@ -25,7 +25,7 @@ This repo is still rough around the edges. To get started:
 # clone the repo
 # (replace with your fork or clone path)
 $ git clone <repo-url>
-$ cd breathing-willow
+$ cd flowgroup
 
 # install in editable mode
 $ pip install -e .
@@ -40,7 +40,7 @@ There are no strict dependencies yet, but a Python environment with `pytest` ins
 You can check the project version with:
 
 ```bash
-breathing-willow version
+willow version
 ```
 
 ## Documentation
@@ -55,7 +55,7 @@ pip install -r requirements-docs.txt
 Then preview the docs locally with our CLI:
 
 ```bash
-breathing-willow docs
+willow docs
 ```
 
 This command runs `mkdocs serve` with live reload and prints the local URL
@@ -63,7 +63,7 @@ This command runs `mkdocs serve` with live reload and prints the local URL
 
 ## Shaping Log and Points
 
-Running `breathing-willow update-net -f <file>` ingests a document into the
+Running `willow update-net -f <file>` ingests a document into the
 document network. Each run prepends an entry to the shaping log located at
 `/l/obs-chaotic/willow-shaping.md` (or the path from the `WILLOW_SHAPING_LOG`
 environment variable).
@@ -77,8 +77,8 @@ similar documents based on token overlap.
 - Sketch your own agent by adding a simple Python script in `agents/` (directory coming soon).
 - Experiment with the dev helper script to see the workflow.
 - Open issues or pull requests with ideas, questions, or early contributions.
-- Track codex prompts by running `breathing-willow log-prompt`.
-- Mark quick vc steps with `breathing-willow vc-step "your note"`.
+- Track codex prompts by running `willow log-prompt`.
+- Mark quick vc steps with `willow vc-step "your note"`.
 
 We welcome experimentation. This repo is a space to iterate quickly and capture useful patterns. Let’s keep the energy flowing!
 
