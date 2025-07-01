@@ -332,6 +332,65 @@ class MemoryEchoInserter:
         return cue
 
 
+class TokenStatsEmbedder:
+    """Embed token-level stats near the top of a markdown document."""
+
+    def __init__(self, md_text: str) -> None:
+        self.md_text = md_text
+
+    def _token_count(self) -> int:
+        tokens = re.findall(r"\b\w+\b", self.md_text)
+        count = len(tokens)
+        print(f"Token count: {count}")
+        return count
+
+    def _segment_count(self) -> int:
+        count = len(re.findall(r"<!--\s*fold:start\s*-->", self.md_text))
+        print(f"Segment count: {count}")
+        return count
+
+    def _turn_counts(self) -> Counter:
+        turns = Counter()
+        for role in re.findall(r"^##\s*(zero|tide):", self.md_text, re.MULTILINE):
+            turns[role] += 1
+        print(f"Turn counts: {dict(turns)}")
+        return turns
+
+    def _insert_block(self, block: str) -> str:
+        lines = self.md_text.splitlines(keepends=True)
+        insert_at = 0
+        if lines and lines[0].strip() == "---":
+            close = None
+            for i in range(1, len(lines)):
+                if lines[i].strip() == "---":
+                    close = i
+                    break
+            if close is not None:
+                insert_at = close + 1
+                while insert_at < len(lines) and lines[insert_at].strip() == "":
+                    insert_at += 1
+            else:
+                print("Warning: frontmatter start found without closing '---'")
+                insert_at = 1
+        prefix = "".join(lines[:insert_at])
+        suffix = "".join(lines[insert_at:])
+        return prefix + block + suffix
+
+    def embed_stats(self) -> str:
+        token_count = self._token_count()
+        segment_count = self._segment_count()
+        turns = self._turn_counts()
+        total_turns = turns.get("zero", 0) + turns.get("tide", 0)
+        stats_block = (
+            "<!-- stats:start -->\n"
+            f"tokens: {token_count}  \n"
+            f"segments: {segment_count}  \n"
+            f"turns: {total_turns} (zero: {turns.get('zero', 0)}, tide: {turns.get('tide', 0)})\n"
+            "<!-- stats:end -->\n"
+        )
+        return self._insert_block(stats_block)
+
+
 class MarkdownExporter:
     """Handles writing the final .md output to disk, ensuring scroll-readability and UTF-8."""
 
