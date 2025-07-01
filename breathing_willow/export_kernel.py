@@ -12,6 +12,7 @@ from pathlib import Path
 import json
 import tempfile
 import zipfile
+import traceback
 
 
 class ChatExportArchiver:
@@ -94,12 +95,28 @@ class MarkdownExporter:
 
     def __init__(self, parsed_text: str, output_path: Path) -> None:
         self.parsed_text = parsed_text
-        self.output_path = output_path
-        print(f"MarkdownExporter initialized for {output_path}")
+        self.output_path = Path(output_path)
+        try:
+            self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Unable to create directory {self.output_path.parent}: {exc}"
+            ) from exc
+        print(f"MarkdownExporter initialized for {self.output_path}")
 
     def write(self) -> None:
-        """Simulate writing markdown to disk."""
-        print(f"Writing markdown to {self.output_path}")
+        """Write the shaped markdown to disk."""
+        print(f"Opening {self.output_path} for writing")
+        try:
+            with self.output_path.open(mode="w", encoding="utf-8") as fh:
+                print("Writing shaped markdown...")
+                fh.write(self.parsed_text)
+                fh.write("\n\n<!-- export_kernel:v0 -->")
+        except Exception:
+            print(f"Failed to write {self.output_path}")
+            traceback.print_exc()
+            return
+        print(f"✅ Exported to {self.output_path}")
 
 
 def main() -> None:
