@@ -9,21 +9,57 @@ replace the print statements with real logic.
 """
 
 from pathlib import Path
+import json
+import tempfile
+import zipfile
 
 
 class ChatExportArchiver:
     """Handles overall process: unpacking .zip, iterating files, coordinating pipeline."""
 
     def __init__(self, zip_path: Path, output_dir: Path) -> None:
-        self.zip_path = zip_path
-        self.output_dir = output_dir
-        print(f"ChatExportArchiver initialized with {zip_path} -> {output_dir}")
+        self.zip_path = Path(zip_path)
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        print(f"ChatExportArchiver initialized with {self.zip_path} -> {self.output_dir}")
 
     def run(self) -> None:
-        """Simulate running the export pipeline."""
-        print("Unpacking zip...")
-        print("Found 6 conversations...")
-        print(f"Writing to {self.output_dir / 'convo_001.md'}")
+        """Extract the archive and convert each conversation to markdown."""
+        print("Extracting archive...")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            try:
+                with zipfile.ZipFile(self.zip_path) as zf:
+                    zf.extractall(tmpdir)
+            except Exception as exc:
+                print(f"Failed to extract {self.zip_path}: {exc}")
+                return
+
+            conv_dir = Path(tmpdir) / "conversations"
+            json_files = sorted(conv_dir.glob("*.json"))
+            print(f"Found {len(json_files)} conversations...")
+
+            for idx, json_file in enumerate(json_files, 1):
+                print(f"Parsing {json_file.name}...")
+                try:
+                    with json_file.open("r", encoding="utf-8") as fh:
+                        raw_thread = json.load(fh)
+                except Exception as exc:
+                    print(f"Skipping {json_file.name}: {exc}")
+                    continue
+
+                try:
+                    md_text = ThreadParser(raw_thread).parse()
+                except Exception as exc:
+                    print(f"Failed to parse {json_file.name}: {exc}")
+                    continue
+
+                dest_name = f"{idx:03d}-{json_file.stem}.md"
+                dest_path = self.output_dir / dest_name
+                try:
+                    dest_path.write_text(md_text, encoding="utf-8")
+                    print(f"Writing to {dest_path}")
+                except Exception as exc:
+                    print(f"Failed to write {dest_path}: {exc}")
 
 
 class ThreadParser:
