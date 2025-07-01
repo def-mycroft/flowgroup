@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 """Export kernel for converting ChatGPT exports to Markdown.
@@ -12,6 +13,7 @@ from pathlib import Path
 import json
 import tempfile
 import zipfile
+import traceback
 import re
 from collections import Counter
 
@@ -198,9 +200,136 @@ class MemoryEchoInserter:
         print(f"MemoryEchoInserter initialized with token_limit={token_limit}")
 
     def insert_memory_echoes(self) -> str:
-        """Return markdown text with placeholder memory echoes."""
+        """Return markdown text with inserted folding markers and memory cues."""
         print("Inserting memory echoes...")
-        return self.md_text
+
+        segments = self._segment_text()
+        if len(segments) <= 1:
+            return self.md_text
+
+        output_parts = [segments[0]]
+        prev_segment = segments[0]
+        for idx, segment in enumerate(segments[1:], 1):
+            cue = self._make_cue(prev_segment)
+            print(f"Cue for segment {idx}: {cue}")
+            fold = f"<!-- fold:start -->\n\N{CLOCKWISE OPEN CIRCLE ARROW} memory: {cue}\n<!-- fold:end -->\n"
+            print("Inserting fold marker")
+            output_parts.append(fold)
+            output_parts.append(segment)
+            prev_segment = segment
+        return "".join(output_parts)
+
+    # simple english stop words
+    _STOP_WORDS = {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "if",
+        "while",
+        "of",
+        "at",
+        "by",
+        "for",
+        "with",
+        "about",
+        "against",
+        "between",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "to",
+        "from",
+        "in",
+        "out",
+        "on",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "all",
+        "any",
+        "both",
+        "each",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "nor",
+        "not",
+        "only",
+        "own",
+        "same",
+        "so",
+        "than",
+        "too",
+        "very",
+        "can",
+        "will",
+        "just",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+    }
+
+    def _segment_text(self) -> list[str]:
+        """Split markdown text into ~token_limit chunks preserving order."""
+        print("Segmenting text...")
+        token_re = re.compile(r"\b\w+\b")
+        segments: list[str] = []
+        start = 0
+        count = 0
+        for match in token_re.finditer(self.md_text):
+            count += 1
+            if count >= self.token_limit:
+                end = self.md_text.find("\n", match.end())
+                if end == -1:
+                    end = match.end()
+                else:
+                    end += 1
+                segment = self.md_text[start:end]
+                print(f"Created segment with {count} tokens")
+                segments.append(segment)
+                start = end
+                count = 0
+        segments.append(self.md_text[start:])
+        return segments
+
+    def _make_cue(self, text: str) -> str:
+        """Generate a short memory cue from ``text``."""
+        words = re.findall(r"[A-Za-z]+", text.lower())
+        filtered = [w for w in words if w not in self._STOP_WORDS]
+        if not filtered:
+            filtered = words
+        counts = Counter(filtered)
+        top_words = [w for w, _ in counts.most_common(7)]
+        if len(top_words) < 3:
+            extras = [w for w in words if w not in top_words]
+            top_words.extend(extras[: 3 - len(top_words)])
+        cue = " ".join(top_words[:7])
+        return cue
 
 
 class TokenStatsEmbedder:
@@ -267,12 +396,28 @@ class MarkdownExporter:
 
     def __init__(self, parsed_text: str, output_path: Path) -> None:
         self.parsed_text = parsed_text
-        self.output_path = output_path
-        print(f"MarkdownExporter initialized for {output_path}")
+        self.output_path = Path(output_path)
+        try:
+            self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Unable to create directory {self.output_path.parent}: {exc}"
+            ) from exc
+        print(f"MarkdownExporter initialized for {self.output_path}")
 
     def write(self) -> None:
-        """Simulate writing markdown to disk."""
-        print(f"Writing markdown to {self.output_path}")
+        """Write the shaped markdown to disk."""
+        print(f"Opening {self.output_path} for writing")
+        try:
+            with self.output_path.open(mode="w", encoding="utf-8") as fh:
+                print("Writing shaped markdown...")
+                fh.write(self.parsed_text)
+                fh.write("\n\n<!-- export_kernel:v0 -->")
+        except Exception:
+            print(f"Failed to write {self.output_path}")
+            traceback.print_exc()
+            return
+        print(f"✅ Exported to {self.output_path}")
 
 
 def main() -> None:
