@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 """Export kernel for converting ChatGPT exports to Markdown.
@@ -13,6 +14,8 @@ import json
 import tempfile
 import zipfile
 import traceback
+import re
+from collections import Counter
 
 
 class ChatExportArchiver:
@@ -67,13 +70,125 @@ class ThreadParser:
     """Parses individual conversation files into structured Markdown with user/agent turns."""
 
     def __init__(self, raw_thread: dict | str) -> None:
+        """Store raw thread data for later parsing."""
         self.raw_thread = raw_thread
         print("ThreadParser initialized")
 
+    def _load_thread(self) -> dict | list:
+        """Return thread as Python object, loading JSON if needed."""
+        if isinstance(self.raw_thread, (dict, list)):
+            return self.raw_thread
+        try:
+            return json.loads(self.raw_thread)
+        except Exception as exc:  # pragma: no cover - safety net
+            print(f"Failed to load thread JSON: {exc}")
+            return {}
+
+    def _extract_date(self, thread: dict | list, messages: list[dict]) -> str:
+        """Extract conversation date from thread or fallback to today."""
+        ts = None
+        if isinstance(thread, dict):
+            for key in ("create_time", "createTime", "timestamp", "date"):
+                if key in thread:
+                    ts = thread.get(key)
+                    break
+        if ts is None:
+            for msg in messages:
+                ts = msg.get("create_time") or msg.get("timestamp")
+                if ts:
+                    break
+        if isinstance(ts, (int, float)):
+            try:
+                from datetime import datetime
+
+                return datetime.fromtimestamp(ts).date().isoformat()
+            except Exception:
+                pass
+        from datetime import date
+
+        return date.today().isoformat()
+
+    def _normalize_messages(self, thread: dict | list) -> list[dict]:
+        """Return ordered list of simple messages with author/content."""
+        if isinstance(thread, list):
+            msgs = thread
+        elif isinstance(thread, dict):
+            if "messages" in thread and isinstance(thread["messages"], list):
+                msgs = thread["messages"]
+            elif "mapping" in thread and isinstance(thread["mapping"], dict):
+                temp: list[tuple[float | int | None, dict]] = []
+                for node in thread["mapping"].values():
+                    m = node.get("message")
+                    if not m:
+                        continue
+                    ts = m.get("create_time") or m.get("timestamp")
+                    temp.append((ts, m))
+                temp.sort(key=lambda x: (x[0] if x[0] is not None else 0))
+                msgs = [m for _, m in temp]
+            else:
+                print("Unknown thread structure; no messages found")
+                msgs = []
+        else:
+            print("Unsupported thread type; expected dict or list")
+            msgs = []
+
+        normalized: list[dict] = []
+        for m in msgs:
+            if not isinstance(m, dict):
+                print("Skipping malformed message entry")
+                continue
+            author = m.get("author")
+            if isinstance(author, dict):
+                author = author.get("role")
+            content = m.get("content")
+            if isinstance(content, dict):
+                if "parts" in content and isinstance(content["parts"], list):
+                    content_text = "\n".join(p for p in content["parts"] if p)
+                else:
+                    content_text = content.get("text", "")
+            else:
+                content_text = content or ""
+            if not content_text.strip():
+                print("Skipping empty message")
+                continue
+            normalized.append({"author": author, "content": content_text.strip(), **m})
+        return normalized
+
     def parse(self) -> str:
-        """Return placeholder parsed Markdown."""
+        """Convert raw thread into markdown text."""
         print("Parsing thread...")
-        return "# parsed markdown"
+        thread_obj = self._load_thread()
+        messages = self._normalize_messages(thread_obj)
+
+        lines: list[str] = []
+        for msg in messages:
+            role = msg.get("author")
+            if role == "user":
+                lines.append("## zero:")
+            elif role == "assistant":
+                lines.append("## tide:")
+            else:
+                print(f"Skipping unknown author: {role}")
+                continue
+            lines.append(msg.get("content", ""))
+            lines.append("")
+
+        date_str = self._extract_date(thread_obj, messages)
+        arc = thread_obj.get("arc", "") if isinstance(thread_obj, dict) else ""
+
+        header = [
+            "---",
+            f"date: {date_str}",
+            "participants:",
+            "  - zero",
+            "  - tide",
+            f"arc: {arc}",
+            "---",
+            "",
+        ]
+
+        markdown = "\n".join(header + lines).rstrip() + "\n"
+        return markdown
 
 
 class MemoryEchoInserter:
@@ -85,9 +200,136 @@ class MemoryEchoInserter:
         print(f"MemoryEchoInserter initialized with token_limit={token_limit}")
 
     def insert_memory_echoes(self) -> str:
-        """Return markdown text with placeholder memory echoes."""
+        """Return markdown text with inserted folding markers and memory cues."""
         print("Inserting memory echoes...")
-        return self.md_text
+
+        segments = self._segment_text()
+        if len(segments) <= 1:
+            return self.md_text
+
+        output_parts = [segments[0]]
+        prev_segment = segments[0]
+        for idx, segment in enumerate(segments[1:], 1):
+            cue = self._make_cue(prev_segment)
+            print(f"Cue for segment {idx}: {cue}")
+            fold = f"<!-- fold:start -->\n\N{CLOCKWISE OPEN CIRCLE ARROW} memory: {cue}\n<!-- fold:end -->\n"
+            print("Inserting fold marker")
+            output_parts.append(fold)
+            output_parts.append(segment)
+            prev_segment = segment
+        return "".join(output_parts)
+
+    # simple english stop words
+    _STOP_WORDS = {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "if",
+        "while",
+        "of",
+        "at",
+        "by",
+        "for",
+        "with",
+        "about",
+        "against",
+        "between",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "to",
+        "from",
+        "in",
+        "out",
+        "on",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "all",
+        "any",
+        "both",
+        "each",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "nor",
+        "not",
+        "only",
+        "own",
+        "same",
+        "so",
+        "than",
+        "too",
+        "very",
+        "can",
+        "will",
+        "just",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+    }
+
+    def _segment_text(self) -> list[str]:
+        """Split markdown text into ~token_limit chunks preserving order."""
+        print("Segmenting text...")
+        token_re = re.compile(r"\b\w+\b")
+        segments: list[str] = []
+        start = 0
+        count = 0
+        for match in token_re.finditer(self.md_text):
+            count += 1
+            if count >= self.token_limit:
+                end = self.md_text.find("\n", match.end())
+                if end == -1:
+                    end = match.end()
+                else:
+                    end += 1
+                segment = self.md_text[start:end]
+                print(f"Created segment with {count} tokens")
+                segments.append(segment)
+                start = end
+                count = 0
+        segments.append(self.md_text[start:])
+        return segments
+
+    def _make_cue(self, text: str) -> str:
+        """Generate a short memory cue from ``text``."""
+        words = re.findall(r"[A-Za-z]+", text.lower())
+        filtered = [w for w in words if w not in self._STOP_WORDS]
+        if not filtered:
+            filtered = words
+        counts = Counter(filtered)
+        top_words = [w for w, _ in counts.most_common(7)]
+        if len(top_words) < 3:
+            extras = [w for w in words if w not in top_words]
+            top_words.extend(extras[: 3 - len(top_words)])
+        cue = " ".join(top_words[:7])
+        return cue
 
 
 class MarkdownExporter:
