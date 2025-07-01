@@ -66,13 +66,125 @@ class ThreadParser:
     """Parses individual conversation files into structured Markdown with user/agent turns."""
 
     def __init__(self, raw_thread: dict | str) -> None:
+        """Store raw thread data for later parsing."""
         self.raw_thread = raw_thread
         print("ThreadParser initialized")
 
+    def _load_thread(self) -> dict | list:
+        """Return thread as Python object, loading JSON if needed."""
+        if isinstance(self.raw_thread, (dict, list)):
+            return self.raw_thread
+        try:
+            return json.loads(self.raw_thread)
+        except Exception as exc:  # pragma: no cover - safety net
+            print(f"Failed to load thread JSON: {exc}")
+            return {}
+
+    def _extract_date(self, thread: dict | list, messages: list[dict]) -> str:
+        """Extract conversation date from thread or fallback to today."""
+        ts = None
+        if isinstance(thread, dict):
+            for key in ("create_time", "createTime", "timestamp", "date"):
+                if key in thread:
+                    ts = thread.get(key)
+                    break
+        if ts is None:
+            for msg in messages:
+                ts = msg.get("create_time") or msg.get("timestamp")
+                if ts:
+                    break
+        if isinstance(ts, (int, float)):
+            try:
+                from datetime import datetime
+
+                return datetime.fromtimestamp(ts).date().isoformat()
+            except Exception:
+                pass
+        from datetime import date
+
+        return date.today().isoformat()
+
+    def _normalize_messages(self, thread: dict | list) -> list[dict]:
+        """Return ordered list of simple messages with author/content."""
+        if isinstance(thread, list):
+            msgs = thread
+        elif isinstance(thread, dict):
+            if "messages" in thread and isinstance(thread["messages"], list):
+                msgs = thread["messages"]
+            elif "mapping" in thread and isinstance(thread["mapping"], dict):
+                temp: list[tuple[float | int | None, dict]] = []
+                for node in thread["mapping"].values():
+                    m = node.get("message")
+                    if not m:
+                        continue
+                    ts = m.get("create_time") or m.get("timestamp")
+                    temp.append((ts, m))
+                temp.sort(key=lambda x: (x[0] if x[0] is not None else 0))
+                msgs = [m for _, m in temp]
+            else:
+                print("Unknown thread structure; no messages found")
+                msgs = []
+        else:
+            print("Unsupported thread type; expected dict or list")
+            msgs = []
+
+        normalized: list[dict] = []
+        for m in msgs:
+            if not isinstance(m, dict):
+                print("Skipping malformed message entry")
+                continue
+            author = m.get("author")
+            if isinstance(author, dict):
+                author = author.get("role")
+            content = m.get("content")
+            if isinstance(content, dict):
+                if "parts" in content and isinstance(content["parts"], list):
+                    content_text = "\n".join(p for p in content["parts"] if p)
+                else:
+                    content_text = content.get("text", "")
+            else:
+                content_text = content or ""
+            if not content_text.strip():
+                print("Skipping empty message")
+                continue
+            normalized.append({"author": author, "content": content_text.strip(), **m})
+        return normalized
+
     def parse(self) -> str:
-        """Return placeholder parsed Markdown."""
+        """Convert raw thread into markdown text."""
         print("Parsing thread...")
-        return "# parsed markdown"
+        thread_obj = self._load_thread()
+        messages = self._normalize_messages(thread_obj)
+
+        lines: list[str] = []
+        for msg in messages:
+            role = msg.get("author")
+            if role == "user":
+                lines.append("## zero:")
+            elif role == "assistant":
+                lines.append("## tide:")
+            else:
+                print(f"Skipping unknown author: {role}")
+                continue
+            lines.append(msg.get("content", ""))
+            lines.append("")
+
+        date_str = self._extract_date(thread_obj, messages)
+        arc = thread_obj.get("arc", "") if isinstance(thread_obj, dict) else ""
+
+        header = [
+            "---",
+            f"date: {date_str}",
+            "participants:",
+            "  - zero",
+            "  - tide",
+            f"arc: {arc}",
+            "---",
+            "",
+        ]
+
+        markdown = "\n".join(header + lines).rstrip() + "\n"
+        return markdown
 
 
 class MemoryEchoInserter:
