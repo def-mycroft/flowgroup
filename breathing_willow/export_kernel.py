@@ -16,6 +16,8 @@ import zipfile
 import traceback
 import re
 from collections import Counter
+from glob import glob
+from os.path import join
 
 
 class ChatExportArchiver:
@@ -38,8 +40,10 @@ class ChatExportArchiver:
                 print(f"Failed to extract {self.zip_path}: {exc}")
                 return
 
-            conv_dir = Path(tmpdir) / "conversations"
+            conv_dir = Path(tmpdir)
             json_files = sorted(conv_dir.glob("*.json"))
+            if not len(json_files):
+                raise Exception('could not find any files. ')
             print(f"Found {len(json_files)} conversations...")
 
             for idx, json_file in enumerate(json_files, 1):
@@ -422,8 +426,11 @@ class MarkdownExporter:
 
 def main() -> None:
     """Entry point for running the export kernel."""
-    zip_path = Path("chatgpt_export.zip")
-    output_dir = Path("field/chatgpt-export/2025-07-01")
+    fpo = ('/l/gd/2025-07-01-cf2aa2910470d3efa6aef5471cb03334b50cef4daad7a91af'
+           '779482b0a31783d-2025-07-01-15-21-04-d5348889b4a14d62bd588c2074d'
+           '402a4.zip')
+    zip_path = Path(fpo)
+    output_dir = Path('/l/tmp')
     archiver = ChatExportArchiver(zip_path, output_dir)
     archiver.run()
 
