@@ -113,50 +113,40 @@ class ThreadParser:
         return date.today().isoformat()
 
     def _normalize_messages(self, thread: dict | list) -> list[dict]:
-        """Return ordered list of simple messages with author/content."""
-        if isinstance(thread, list):
-            msgs = thread
-        elif isinstance(thread, dict):
-            if "messages" in thread and isinstance(thread["messages"], list):
-                msgs = thread["messages"]
-            elif "mapping" in thread and isinstance(thread["mapping"], dict):
-                temp: list[tuple[float | int | None, dict]] = []
-                for node in thread["mapping"].values():
-                    m = node.get("message")
-                    if not m:
-                        continue
-                    ts = m.get("create_time") or m.get("timestamp")
-                    temp.append((ts, m))
-                temp.sort(key=lambda x: (x[0] if x[0] is not None else 0))
-                msgs = [m for _, m in temp]
-            else:
-                print("Unknown thread structure; no messages found")
-                msgs = []
-        else:
-            print("Unsupported thread type; expected dict or list")
-            msgs = []
+        """Return ordered list of messages by walking the conversation tree."""
+        if not isinstance(thread, dict) or "mapping" not in thread:
+            print("Unsupported or missing mapping structure.")
+            return []
 
-        normalized: list[dict] = []
-        for m in msgs:
-            if not isinstance(m, dict):
-                print("Skipping malformed message entry")
-                continue
-            author = m.get("author")
-            if isinstance(author, dict):
-                author = author.get("role")
-            content = m.get("content")
-            if isinstance(content, dict):
-                if "parts" in content and isinstance(content["parts"], list):
-                    content_text = "\n".join(p for p in content["parts"] if p)
+        mapping = thread["mapping"]
+        root_id = "client-created-root"
+        ordered: list[dict] = []
+
+        def walk(node_id: str) -> None:
+            node = mapping.get(node_id)
+            if not node:
+                return
+            msg = node.get("message")
+            if msg and isinstance(msg, dict):
+                author = msg.get("author")
+                if isinstance(author, dict):
+                    author = author.get("role")
+                content = msg.get("content")
+                if isinstance(content, dict):
+                    parts = content.get("parts", [])
+                    if isinstance(parts, list) and parts:
+                        content_text = "\n".join(str(p).strip() for p in parts if p)
+                    else:
+                        content_text = content.get("text", "").strip()
                 else:
-                    content_text = content.get("text", "")
-            else:
-                content_text = content or ""
-            if not content_text.strip():
-                print("Skipping empty message")
-                continue
-            normalized.append({"author": author, "content": content_text.strip(), **m})
-        return normalized
+                    content_text = content or ""
+                if content_text.strip():
+                    ordered.append({"author": author, "content": content_text.strip(), **msg})
+            for child_id in node.get("children", []):
+                walk(child_id)
+
+        walk(root_id)
+        return ordered
 
     def parse(self) -> str:
         """Convert raw thread into markdown text."""
