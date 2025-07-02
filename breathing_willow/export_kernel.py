@@ -41,27 +41,32 @@ class ChatExportArchiver:
                 return
 
             conv_dir = Path(tmpdir)
-            json_files = sorted(conv_dir.glob("*.json"))
-            if not len(json_files):
-                raise Exception('could not find any files. ')
-            print(f"Found {len(json_files)} conversations...")
+            convo_file = conv_dir / "conversations.json"
+            if not convo_file.is_file():
+                raise Exception("conversations.json not found")
 
-            for idx, json_file in enumerate(json_files, 1):
-                print(f"Parsing {json_file.name}...")
+            try:
+                with convo_file.open("r", encoding="utf-8") as fh:
+                    conversations = json.load(fh)
+            except Exception as exc:
+                print(f"Failed to load {convo_file}: {exc}")
+                return
+
+            if not isinstance(conversations, list):
+                print(f"{convo_file} did not contain a list")
+                return
+
+            print(f"Found {len(conversations)} conversations...")
+
+            for idx, thread in enumerate(conversations, 1):
+                print(f"Parsing conversation {idx}...")
                 try:
-                    with json_file.open("r", encoding="utf-8") as fh:
-                        raw_thread = json.load(fh)
+                    md_text = ThreadParser(thread).parse()
                 except Exception as exc:
-                    print(f"Skipping {json_file.name}: {exc}")
+                    print(f"Failed to parse conversation {idx}: {exc}")
                     continue
 
-                try:
-                    md_text = ThreadParser(raw_thread).parse()
-                except Exception as exc:
-                    print(f"Failed to parse {json_file.name}: {exc}")
-                    continue
-
-                dest_name = f"{idx:03d}-{json_file.stem}.md"
+                dest_name = f"{idx:03d}-conversations.md"
                 dest_path = self.output_dir / dest_name
                 try:
                     dest_path.write_text(md_text, encoding="utf-8")
@@ -114,38 +119,66 @@ class ThreadParser:
 
     def _normalize_messages(self, thread: dict | list) -> list[dict]:
         """Return ordered list of messages by walking the conversation tree."""
-        if not isinstance(thread, dict) or "mapping" not in thread:
+        if isinstance(thread, list):
+            messages = thread
+        elif isinstance(thread, dict):
+            if "mapping" in thread:
+                mapping = thread["mapping"]
+                root_id = "client-created-root"
+                ordered: list[dict] = []
+
+                def walk(node_id: str) -> None:
+                    node = mapping.get(node_id)
+                    if not node:
+                        return
+                    msg = node.get("message")
+                    if msg and isinstance(msg, dict):
+                        author = msg.get("author")
+                        if isinstance(author, dict):
+                            author = author.get("role")
+                        content = msg.get("content")
+                        if isinstance(content, dict):
+                            parts = content.get("parts", [])
+                            if isinstance(parts, list) and parts:
+                                content_text = "\n".join(str(p).strip() for p in parts if p)
+                            else:
+                                content_text = content.get("text", "").strip()
+                        else:
+                            content_text = content or ""
+                        if content_text.strip():
+                            ordered.append({"author": author, "content": content_text.strip()})
+                    for child_id in node.get("children", []):
+                        walk(child_id)
+
+                walk(root_id)
+                return ordered
+            elif "messages" in thread and isinstance(thread["messages"], list):
+                messages = thread["messages"]
+            else:
+                print("Unsupported or missing mapping structure.")
+                return []
+        else:
             print("Unsupported or missing mapping structure.")
             return []
 
-        mapping = thread["mapping"]
-        root_id = "client-created-root"
-        ordered: list[dict] = []
-
-        def walk(node_id: str) -> None:
-            node = mapping.get(node_id)
-            if not node:
-                return
-            msg = node.get("message")
-            if msg and isinstance(msg, dict):
-                author = msg.get("author")
-                if isinstance(author, dict):
-                    author = author.get("role")
-                content = msg.get("content")
-                if isinstance(content, dict):
-                    parts = content.get("parts", [])
-                    if isinstance(parts, list) and parts:
-                        content_text = "\n".join(str(p).strip() for p in parts if p)
-                    else:
-                        content_text = content.get("text", "").strip()
+        ordered = []
+        for msg in messages:
+            if not isinstance(msg, dict):
+                continue
+            author = msg.get("author")
+            if isinstance(author, dict):
+                author = author.get("role")
+            content = msg.get("content")
+            if isinstance(content, dict):
+                parts = content.get("parts", [])
+                if isinstance(parts, list) and parts:
+                    content_text = "\n".join(str(p).strip() for p in parts if p)
                 else:
-                    content_text = content or ""
-                if content_text.strip():
-                    ordered.append({"author": author, "content": content_text.strip(), **msg})
-            for child_id in node.get("children", []):
-                walk(child_id)
-
-        walk(root_id)
+                    content_text = content.get("text", "").strip()
+            else:
+                content_text = content or ""
+            if content_text.strip():
+                ordered.append({"author": author, "content": content_text.strip()})
         return ordered
 
     def parse(self) -> str:

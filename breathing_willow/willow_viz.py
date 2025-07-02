@@ -5,12 +5,48 @@ import json
 import re
 from pathlib import Path
 
-import gensim
-from gensim import corpora
-from gensim.models import TfidfModel
-import networkx as nx
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
+try:
+    import gensim  # type: ignore
+    from gensim import corpora  # type: ignore
+    from gensim.models import TfidfModel  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    gensim = None  # type: ignore
+
+    class _DummyDictionary(dict):
+        def __init__(self, texts=None):
+            self.token2id = {}
+            if texts:
+                for tokens in texts:
+                    for t in tokens:
+                        if t not in self.token2id:
+                            self.token2id[t] = len(self.token2id)
+
+        def doc2bow(self, tokens):
+            counts = {}
+            for t in tokens:
+                if t in self.token2id:
+                    idx = self.token2id[t]
+                    counts[idx] = counts.get(idx, 0) + 1
+            return list(counts.items())
+
+    class _DummyTFIDF:
+        def __init__(self, corpus=None):
+            pass
+
+    corpora = type("corpora", (), {"Dictionary": _DummyDictionary})
+    TfidfModel = _DummyTFIDF  # type: ignore
+
+try:
+    import networkx as nx  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    nx = None  # type: ignore
+
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer  # type: ignore
+    from sklearn.cluster import KMeans  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    TfidfVectorizer = None  # type: ignore
+    KMeans = None  # type: ignore
 
 try:
     import nltk
@@ -71,6 +107,11 @@ class WillowGrowth:
         sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
         if not sentences:
             return "", [], []
+        if TfidfVectorizer is None or KMeans is None:
+            tokens = self.tokenize(text)
+            summary = " ".join(tokens[:25])
+            return summary, [], tokens
+
         n_clusters = min(5, len(sentences))
         vectorizer = TfidfVectorizer(stop_words="english")
         X = vectorizer.fit_transform(sentences)
@@ -184,12 +225,21 @@ class WillowGrowth:
                 print(f"🌱 Visualization saved to {output}")
         except ImportError:
             print("⚠️ pyvis not installed — skipping visualization.")
+            Path(output).write_text("pyvis not installed")
 
     def cluster_terms(self, max_clusters: int = 5) -> list[list[str]]:
         """Return conceptual clusters of the current network."""
         texts = [" ".join(data.get("tokens", [])) for _, data in self.graph.nodes(data=True)]
         if not texts:
             return []
+
+        if TfidfVectorizer is None or KMeans is None:
+            from collections import Counter
+            counts = Counter(t for text in texts for t in text.split())
+            if not counts:
+                return []
+            top = [w for w, _ in counts.most_common(5)]
+            return [top]
 
         n_clusters = min(max(3, len(texts)), max_clusters)
         n_clusters = min(n_clusters, len(texts))
