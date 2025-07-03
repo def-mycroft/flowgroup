@@ -241,16 +241,6 @@ class ThreadParser:
         return markdown
 
 
-def main() -> None:
-    """Entry point for running the export kernel."""
-    fpo = ('/l/gd/2025-07-01-cf2aa2910470d3efa6aef5471cb03334b50cef4daad7a91af'
-           '779482b0a31783d-2025-07-01-15-21-04-d5348889b4a14d62bd588c2074d'
-           '402a4.zip')
-    zip_path = Path(fpo)
-    output_dir = Path('/l/tmp')
-    archiver = ChatExportArchiver(zip_path, output_dir)
-    archiver.run()
-
-
 if __name__ == "__main__":
     main()
+
