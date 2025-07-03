@@ -1,4 +1,39 @@
 
+"""
+BEGINPROMPT
+ |🌊 [flow agent] @ ctime 2025-07-03T12:25:51-0600 | 🌊📚 tide:: INSTRUCTIONS
+ FOR CODEX historical-money f88acfa7. 
+
+ follow the below prompt. remove text between BEGINPROMPT and ENDPROMPT
+
+Rewrite the following two classes — `ThreadParser` and `ChatExportArchiver` — to output HTML
+instead of Markdown. The goal is to convert a ChatGPT `.zip` export into scroll-friendly,
+structure-preserving HTML files.
+
+You must:
+- Replace all Markdown formatting logic with equivalent HTML structure.
+  - User turns should be wrapped in `<div class="user-turn">` with a `<h2>zero:</h2>` header.
+  - Assistant turns should be in `<div class="assistant-turn">` with a `<h2>tide:</h2>` header.
+  - Line breaks and paragraph spacing should be preserved.
+- At the top of each HTML file, prepend a `<div class="meta">` block with:
+  - The export identifier (derived from the `.zip` filename, e.g., its base name without extension)
+  - The full conversation start and end datetimes in local Denver time (tz-aware)
+  - The conversation date in `YYYY-MM-DD` format
+  - Participants (always zero and tide)
+  - If the `arc` field exists, include it as a `<div class="arc">` element
+
+Implementation notes:
+- In `ChatExportArchiver`, pass the export basename as a new field `export_id`, extracted from
+  the zip file name without extension. This value must be passed to `ThreadParser`.
+- In `ThreadParser`, detect the earliest and latest timestamps from the messages list to compute
+  start and end times. Use the `pytz` library to convert UTC timestamps to Denver local time.
+- The final HTML output should be returned as a single string and written to `.html` files.
+- Output files must use `.html` extension, and filenames should still follow the zero-padded index
+  pattern (`001-conversation.html`, etc.).
+ENDPROMPT
+"""
+
+
 from __future__ import annotations
 
 """Export kernel for converting ChatGPT exports to Markdown.
