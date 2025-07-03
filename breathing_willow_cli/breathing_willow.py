@@ -221,7 +221,7 @@ def main(argv=None):
         from pathlib import Path
         from os.path import join 
         now = datetime.now()
-        fpo = Path(join('/field', now.strftime('%Y-%m-%d')))
+        fpo = Path(join('/l/gds/chatgpt-exports', now.strftime('%Y-%m-%d')))
         fpi = Path(args.file)
         archiver = ChatExportArchiver(fpi, fpo)
         archiver.run()
