@@ -16,11 +16,11 @@ def test_simple_thread_parsing():
             {"author": "assistant", "content": "hi"},
         ],
     }
-    md = ThreadParser(thread).parse()
+    html = ThreadParser(thread, export_id="exp").parse()
     expected_date = datetime.fromtimestamp(ts).date().isoformat()
-    assert f"date: {expected_date}" in md
-    assert "## zero:" in md
-    assert "## tide:" in md
+    assert f"<div class=\"date\">{expected_date}</div>" in html
+    assert "<div class=\"user-turn\">" in html
+    assert "<div class=\"assistant-turn\">" in html
 
 
 def test_skip_malformed_entries():
@@ -29,9 +29,8 @@ def test_skip_malformed_entries():
         {"content": "no author"},
         {"author": "user", "content": "good"},
     ]
-    md = ThreadParser(thread).parse()
-    lines = [l for l in md.splitlines() if l.startswith("##")]
-    assert lines == ["## zero:"]
+    html = ThreadParser(thread, export_id="exp").parse()
+    assert html.count("user-turn") == 1
 
 
 def test_json_string_input():
@@ -39,6 +38,6 @@ def test_json_string_input():
         {"author": "user", "content": "x"},
         {"author": "assistant", "content": "y"},
     ])
-    md = ThreadParser(data).parse()
-    assert "## zero:" in md and "## tide:" in md
+    html = ThreadParser(data, export_id="exp").parse()
+    assert "user-turn" in html and "assistant-turn" in html
 

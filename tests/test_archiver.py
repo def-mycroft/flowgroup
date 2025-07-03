@@ -52,9 +52,9 @@ def test_archiver_conversations_json(tmp_path: Path):
     arch = ChatExportArchiver(zip_path, out_dir)
     arch.run()
 
-    files = list(out_dir.glob("*.md"))
+    files = list(out_dir.glob("*.html"))
     assert len(files) == 1
     text = files[0].read_text()
-    assert "## zero:" in text
-    assert "## tide:" in text
+    assert "user-turn" in text
+    assert "assistant-turn" in text
 

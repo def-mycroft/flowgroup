@@ -12,6 +12,7 @@ dependencies = [
     "gensim",
     "pyvis",
     "scikit-learn",
+    "pytz",
 ]
 
 [project.scripts]
