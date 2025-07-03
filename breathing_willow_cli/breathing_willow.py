@@ -151,6 +151,10 @@ def main(argv=None):
         help="export conceptual diff report",
     )
 
+    dev_man_parser = subparsers.add_parser("module-prompt133", help="setup prompt stubs for 133 process")
+    dev_man_parser.add_argument("--filepath-module", "-f", required=False, help="path to module to be developed.", default="")
+    dev_man_parser.add_argument("--dir-out", "-o", required=False, help="output dir path. will write codex/prompts. ", default="")
+
     log_parser = subparsers.add_parser("log-prompt", help="log a codex prompt")
     log_parser.add_argument("--title", required=True, help="prompt title")
     log_parser.add_argument("--link", required=True, help="codex task link")
@@ -228,6 +232,14 @@ def main(argv=None):
             Path("/field/field-update.md").write_text(report)
         else:
             print("sense")
+    elif args.command == "module-prompt133":
+        from breathing_willow import module_prompt_setup as mps
+        fp_module = args.filepath_module
+        fp_output = args.dir_out
+        if not fp_module and fp_module:
+            print('must have both -f and -o. ')
+        print(fp_module, fp_output)
+        mps.generate_codex_prompts(fp_module, fp_output)
     elif args.command == "log-prompt":
         log_prompt(args.title, args.link, args.commit)
     elif args.command == "vc-step":
