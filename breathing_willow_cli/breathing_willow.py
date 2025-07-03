@@ -156,6 +156,15 @@ def main(argv=None):
     log_parser.add_argument("--link", required=True, help="codex task link")
     log_parser.add_argument("--commit", help="commit or PR link")
 
+    hist_parser = subparsers.add_parser(
+        "history", help="parse chatgpt history"
+    )
+    hist_parser.add_argument(
+        "-f",
+        "--file",
+        required=True,
+        help="input file",
+    )
     step_parser = subparsers.add_parser(
         "vc-step", help="record a quick vc loop step"
     )
@@ -202,6 +211,17 @@ def main(argv=None):
         print(f"Breathing Willow version {version} - CLI is alive!")
         return
 
+    if args.command == "history":
+        from breathing_willow.export_kernel import ChatExportArchiver
+        from datetime import datetime 
+        from pathlib import Path
+        from os.path import join 
+        now = datetime.now()
+        fpo = Path(join('/field', now.strftime('%Y-%m-%d')))
+        fpi = Path(args.file)
+        archiver = ChatExportArchiver(fpi, fpo)
+        archiver.run()
+
     if args.command == "sense":
         if args.diff:
             report = diff.export_diff("/field")
@@ -231,3 +251,6 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+
+
