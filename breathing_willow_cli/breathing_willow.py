@@ -217,9 +217,8 @@ def main(argv=None):
 
     if args.command == "history":
         from breathing_willow.export_kernel import ChatExportArchiver
-        from datetime import datetime 
-        from pathlib import Path
-        from os.path import join 
+        from datetime import datetime
+        from os.path import join
         now = datetime.now()
         fpo = Path(join('/l/gds/chatgpt-exports', now.strftime('%Y-%m-%d')))
         fpi = Path(args.file)

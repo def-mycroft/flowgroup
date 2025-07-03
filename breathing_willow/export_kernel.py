@@ -1,94 +1,60 @@
-
-"""
-BEGINPROMPT
- |🌊 [flow agent] @ ctime 2025-07-03T12:25:51-0600 | 🌊📚 tide:: INSTRUCTIONS
- FOR CODEX historical-money f88acfa7. 
-
- follow the below prompt. remove text between BEGINPROMPT and ENDPROMPT
-
-Rewrite the following two classes — `ThreadParser` and `ChatExportArchiver` — to output HTML
-instead of Markdown. The goal is to convert a ChatGPT `.zip` export into scroll-friendly,
-structure-preserving HTML files.
-
-You must:
-- Replace all Markdown formatting logic with equivalent HTML structure.
-  - User turns should be wrapped in `<div class="user-turn">` with a `<h2>zero:</h2>` header.
-  - Assistant turns should be in `<div class="assistant-turn">` with a `<h2>tide:</h2>` header.
-  - Line breaks and paragraph spacing should be preserved.
-- At the top of each HTML file, prepend a `<div class="meta">` block with:
-  - The export identifier (derived from the `.zip` filename, e.g., its base name without extension)
-  - The full conversation start and end datetimes in local Denver time (tz-aware)
-  - The conversation date in `YYYY-MM-DD` format
-  - Participants (always zero and tide)
-  - If the `arc` field exists, include it as a `<div class="arc">` element
-
-Implementation notes:
-- In `ChatExportArchiver`, pass the export basename as a new field `export_id`, extracted from
-  the zip file name without extension. This value must be passed to `ThreadParser`.
-- In `ThreadParser`, detect the earliest and latest timestamps from the messages list to compute
-  start and end times. Use the `pytz` library to convert UTC timestamps to Denver local time.
-- The final HTML output should be returned as a single string and written to `.html` files.
-- Output files must use `.html` extension, and filenames should still follow the zero-padded index
-  pattern (`001-conversation.html`, etc.).
-ENDPROMPT
-"""
-
+"""Utilities for converting ChatGPT exports into HTML conversations."""
 
 from __future__ import annotations
 
-"""Export kernel for converting ChatGPT exports to Markdown.
+"""Export kernel for converting ChatGPT exports to HTML.
 
-This module defines the scaffold for parsing zipped ChatGPT exports into
-Markdown files optimized for rhythm-aware shaping workflows. All
-functionality here is placeholder-only. Future prompts will gradually
-replace the print statements with real logic.
-"""
+This module defines the scaffold for parsing zipped ChatGPT exports into HTML files optimized for rhythm-aware shaping workflows. All functionality here is placeholder-only. Future prompts will gradually replace the print statements with real logic."""
 
+import traceback
+import re
 from pathlib import Path
 import json
 import tempfile
 import zipfile
-import traceback
-import re
 from collections import Counter
 from glob import glob
 from os.path import join
 
+import html
+from datetime import datetime
+import pytz
 
 class ChatExportArchiver:
-    """Orchestrates the conversion of a ChatGPT `.zip` export into markdown files.
+    """Orchestrates the conversion of a ChatGPT `.zip` export into HTML files.
 
     This class defines the top-level control flow for transforming a ChatGPT
-    conversation archive into a series of structured markdown documents. It accepts
+    conversation archive into a series of structured HTML documents. It accepts
     paths to the source `.zip` archive and the destination output directory.
     Internally, it unpacks the archive, parses the `conversations.json` file, and
     delegates parsing of each conversation thread to `ThreadParser`. Each resulting
-    markdown document is written to the output directory with sequential filenames.
+    HTML document is written to the output directory with sequential filenames.
 
     ## Parameters
     zip_path : Path
         Path to the exported `.zip` archive containing the conversations.
     output_dir : Path
-        Path to the directory where markdown files will be saved.
+        Path to the directory where HTML files will be saved.
 
     ## Attributes
     zip_path : Path
         The input path to the archive file.
     output_dir : Path
-        The output directory for saving parsed markdown files.
+        The output directory for saving parsed HTML files.
 
     ## Methods
     run()
-        Executes the unpacking, parsing, and markdown export pipeline.
+        Executes the unpacking, parsing, and HTML export pipeline.
     """
     def __init__(self, zip_path: Path, output_dir: Path) -> None:
         self.zip_path = Path(zip_path)
+        self.export_id = self.zip_path.stem
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         print(f"ChatExportArchiver initialized with {self.zip_path} -> {self.output_dir}")
 
     def run(self) -> None:
-        """Extract the archive and convert each conversation to markdown."""
+        """Extract the archive and convert each conversation to HTML."""
         print("Extracting archive...")
         with tempfile.TemporaryDirectory() as tmpdir:
             try:
@@ -119,26 +85,27 @@ class ChatExportArchiver:
             for idx, thread in enumerate(conversations, 1):
                 print(f"Parsing conversation {idx}...")
                 try:
-                    md_text = ThreadParser(thread).parse()
+                    html_text = ThreadParser(thread, export_id=self.export_id).parse()
                 except Exception as exc:
                     print(f"Failed to parse conversation {idx}: {exc}")
                     continue
 
-                dest_name = f"{idx:03d}-conversations.md"
+                dest_name = f"{idx:03d}-conversation.html"
                 dest_path = self.output_dir / dest_name
                 try:
-                    dest_path.write_text(md_text, encoding="utf-8")
+                    dest_path.write_text(html_text, encoding="utf-8")
                     print(f"Writing to {dest_path}")
                 except Exception as exc:
                     print(f"Failed to write {dest_path}: {exc}")
 
 
 class ThreadParser:
-    """Parses individual conversation files into structured Markdown with user/agent turns."""
+    """Parses individual conversation files into structured HTML with user/agent turns."""
 
-    def __init__(self, raw_thread: dict | str) -> None:
+    def __init__(self, raw_thread: dict | str, export_id: str) -> None:
         """Store raw thread data for later parsing."""
         self.raw_thread = raw_thread
+        self.export_id = export_id
         print("ThreadParser initialized")
 
     def _load_thread(self) -> dict | list:
@@ -151,29 +118,29 @@ class ThreadParser:
             print(f"Failed to load thread JSON: {exc}")
             return {}
 
-    def _extract_date(self, thread: dict | list, messages: list[dict]) -> str:
-        """Extract conversation date from thread or fallback to today."""
-        ts = None
+    def _compute_times(self, thread: dict | list, messages: list[dict]) -> tuple[str, str, str]:
+        """Return start datetime, end datetime, and date string."""
+        ts_list: list[float] = []
         if isinstance(thread, dict):
-            for key in ("create_time", "createTime", "timestamp", "date"):
-                if key in thread:
-                    ts = thread.get(key)
-                    break
-        if ts is None:
-            for msg in messages:
-                ts = msg.get("create_time") or msg.get("timestamp")
-                if ts:
-                    break
-        if isinstance(ts, (int, float)):
-            try:
-                from datetime import datetime
-
-                return datetime.fromtimestamp(ts).date().isoformat()
-            except Exception:
-                pass
-        from datetime import date
-
-        return date.today().isoformat()
+            for key in ("create_time", "createTime", "timestamp"):
+                val = thread.get(key)
+                if isinstance(val, (int, float)):
+                    ts_list.append(float(val))
+        for msg in messages:
+            for key in ("create_time", "timestamp"):
+                val = msg.get(key)
+                if isinstance(val, (int, float)):
+                    ts_list.append(float(val))
+        if not ts_list:
+            from datetime import date
+            today = date.today().isoformat()
+            return "", "", today
+        start_ts = min(ts_list)
+        end_ts = max(ts_list)
+        denver = pytz.timezone("America/Denver")
+        start_dt = datetime.fromtimestamp(start_ts, tz=pytz.utc).astimezone(denver)
+        end_dt = datetime.fromtimestamp(end_ts, tz=pytz.utc).astimezone(denver)
+        return start_dt.isoformat(), end_dt.isoformat(), start_dt.date().isoformat()
 
     def _normalize_messages(self, thread: dict | list) -> list[dict]:
         """Return ordered list of messages by walking the conversation tree."""
@@ -240,42 +207,38 @@ class ThreadParser:
         return ordered
 
     def parse(self) -> str:
-        """Convert raw thread into markdown text."""
+        """Convert raw thread into HTML text."""
         print("Parsing thread...")
         thread_obj = self._load_thread()
         messages = self._normalize_messages(thread_obj)
 
-        lines: list[str] = []
-        for msg in messages:
-            role = msg.get("author")
-            if role == "user":
-                lines.append("## zero:")
-            elif role == "assistant":
-                lines.append("## tide:")
-            else:
-                print(f"Skipping unknown author: {role}")
-                continue
-            lines.append(msg.get("content", ""))
-            lines.append("")
-
-        date_str = self._extract_date(thread_obj, messages)
+        start, end, date_str = self._compute_times(thread_obj, messages)
         arc = thread_obj.get("arc", "") if isinstance(thread_obj, dict) else ""
 
-        header = [
-            "---",
-            f"date: {date_str}",
-            "participants:",
-            "  - zero",
-            "  - tide",
-            f"arc: {arc}",
-            "---",
-            "",
-        ]
+        lines: list[str] = []
+        lines.append('<div class="meta">')
+        lines.append(f'<div class="export-id">{html.escape(self.export_id)}</div>')
+        if start:
+            lines.append(f'<div class="start">{start}</div>')
+        if end:
+            lines.append(f'<div class="end">{end}</div>')
+        lines.append(f'<div class="date">{date_str}</div>')
+        lines.append('<div class="participants"><span>zero</span><span>tide</span></div>')
+        if arc:
+            lines.append(f'<div class="arc">{html.escape(str(arc))}</div>')
+        lines.append('</div>')
 
-        markdown = "\n".join(header + lines).rstrip() + "\n"
-        return markdown
+        for msg in messages:
+            role = msg.get("author")
+            content = html.escape(msg.get("content", "")).replace("\n", "<br>\n")
+            if role == "user":
+                lines.append(f'<div class="user-turn"><h2>zero:</h2>{content}</div>')
+            elif role == "assistant":
+                lines.append(f'<div class="assistant-turn"><h2>tide:</h2>{content}</div>')
+            else:
+                print(f"Skipping unknown author: {role}")
 
+        html_text = "\n".join(lines).rstrip() + "\n"
+        return html_text
 
-if __name__ == "__main__":
-    main()
 
