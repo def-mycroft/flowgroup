@@ -477,12 +477,71 @@ class TurnSummaryAnnotator:
             filtered = [w for w in words if w not in stop_words]
             common = [w for w, _ in Counter(filtered).most_common(5)]
             summary = " ".join(common)
+            magnifier = "\U0001f50d"  # 🔍
             annot = (
                 f'<div class="turn-summary" style="font-size:smaller;color:#666;">'
-                f'\ud83d\udd0d Summary: {html.escape(summary)} — [{len(content)} chars]'
+                f'{magnifier} Summary: {html.escape(summary)} — [{len(content)} chars]'
                 "</div>"
             )
             blocks.append(annot)
 
         return blocks
+
+
+def annotate_scrolls_in_dir(output_dir: Path) -> None:
+    """Annotate each conversation scroll in ``output_dir`` with turn summaries.
+
+    This function searches ``output_dir`` for HTML files matching
+    ``*-conversation.html``. For each file it extracts the ordered list of user
+    and assistant turns, runs :class:`TurnSummaryAnnotator` to generate
+    annotated HTML, then replaces the original turn blocks with the annotated
+    ones. All other content in the file is left untouched.
+
+    Parameters
+    ----------
+    output_dir : Path
+        Directory containing exported scroll HTML files.
+    """
+
+    dir_path = Path(output_dir)
+    annotator = TurnSummaryAnnotator()
+
+    html_files = sorted(dir_path.glob("*-conversation.html"))
+    for html_path in html_files:
+        print(f"Processing {html_path.name}...")
+        try:
+            html_text = html_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            print(f"  Failed to read {html_path}: {exc}")
+            continue
+
+        pattern = re.compile(
+            r'<div class="(?P<role>user|assistant)-turn">\s*<h2>[^<]+</h2>(?P<content>.*?)</div>',
+            re.DOTALL,
+        )
+        matches = list(pattern.finditer(html_text))
+        if not matches:
+            print(f"  No turns found, skipping")
+            continue
+
+        messages: list[dict] = []
+        for m in matches:
+            role = m.group("role")
+            content_html = m.group("content")
+            text = re.sub(r"<br\s*/?>", "\n", content_html)
+            text = re.sub(r"<[^>]+>", "", text)
+            text = html.unescape(text)
+            messages.append({"author": role, "content": text})
+
+        annotated_blocks = annotator.run(messages)
+        new_turns = "\n".join(annotated_blocks)
+
+        start = matches[0].start()
+        end = matches[-1].end()
+        new_html = html_text[:start] + new_turns + html_text[end:]
+        try:
+            html_path.write_text(new_html, encoding="utf-8")
+            print(f"  Annotated {len(messages)} turns")
+        except Exception as exc:
+            print(f"  Failed to write {html_path}: {exc}")
 
