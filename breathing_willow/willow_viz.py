@@ -41,6 +41,77 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     nx = None  # type: ignore
 
+    class _SimpleGraph:
+        """Minimal fallback graph when networkx is unavailable."""
+
+        def __init__(self) -> None:
+            self._nodes: dict[str, dict] = {}
+            self._edges: dict[str, dict[str, dict]] = {}
+
+        # --- node helpers -------------------------------------------------
+        def add_node(self, nid: str, **data) -> None:
+            if nid not in self._nodes:
+                self._nodes[nid] = {}
+            self._nodes[nid].update(data)
+
+        class _NodeView:
+            def __init__(self, graph: "_SimpleGraph") -> None:
+                self._g = graph
+
+            def __call__(self, data: bool = False):
+                return (
+                    self._g._nodes.items() if data else self._g._nodes.keys()
+                )
+
+            def __iter__(self):
+                return iter(self._g._nodes.keys())
+
+            def __len__(self):
+                return len(self._g._nodes)
+
+        @property
+        def nodes(self) -> "_SimpleGraph._NodeView":
+            return _SimpleGraph._NodeView(self)
+
+        # --- edge helpers -------------------------------------------------
+        def add_edge(self, a: str, b: str, **data) -> None:
+            self._edges.setdefault(a, {})[b] = data
+            self._edges.setdefault(b, {})[a] = data
+
+        def edges(self, nid: str | None = None):
+            if nid is None:
+                seen = set()
+                for src, nbrs in self._edges.items():
+                    for dst in nbrs:
+                        if (dst, src) not in seen:
+                            seen.add((src, dst))
+                            yield (src, dst)
+            else:
+                for dst in self._edges.get(nid, {}):
+                    yield (nid, dst)
+
+    def _to_data(graph: _SimpleGraph) -> dict:
+        return {
+            "nodes": [
+                {"id": nid, **attrs} for nid, attrs in graph.nodes(data=True)
+            ],
+            "edges": [
+                {"source": a, "target": b, **graph._edges[a][b]}
+                for a, b in graph.edges()
+            ],
+        }
+
+    def _from_data(data: dict) -> _SimpleGraph:
+        g = _SimpleGraph()
+        for node in data.get("nodes", []):
+            nid = node.pop("id")
+            g.add_node(nid, **node)
+        for edge in data.get("edges", []):
+            src = edge.pop("source")
+            dst = edge.pop("target")
+            g.add_edge(src, dst, **edge)
+        return g
+
 try:
     from sklearn.feature_extraction.text import TfidfVectorizer  # type: ignore
     from sklearn.cluster import KMeans  # type: ignore
@@ -72,16 +143,25 @@ class WillowGrowth:
         if self.graph_path.exists():
             self.load_graph()
         else:
-            self.graph = nx.Graph()
+            if nx is not None:
+                self.graph = nx.Graph()
+            else:
+                self.graph = _SimpleGraph()
         self.tfidf_model = None
         self.dictionary = None
 
     def load_graph(self):
         data = json.loads(self.graph_path.read_text())
-        self.graph = nx.node_link_graph(data)
+        if nx is not None:
+            self.graph = nx.node_link_graph(data)
+        else:
+            self.graph = _from_data(data)
 
     def save_graph(self):
-        data = nx.node_link_data(self.graph)
+        if nx is not None:
+            data = nx.node_link_data(self.graph)
+        else:
+            data = _to_data(self.graph)
         self.graph_path.write_text(json.dumps(data, indent=2))
 
     def _hash_content(self, text):
