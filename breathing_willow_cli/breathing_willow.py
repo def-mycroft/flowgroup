@@ -144,6 +144,14 @@ def main(argv=None):
     )
     subparsers = parser.add_subparsers(dest="command")
 
+    ccraft_parser = subparsers.add_parser("ccraft", help="tools for context crafting ccraft. ")
+    ccraft_parser.add_argument(
+        "-f",
+        "--file",
+        required=True,
+        help="input file",
+    )
+
     sense_parser = subparsers.add_parser("sense", help="sense for pulse (diff)")
     sense_parser.add_argument(
         "--diff",
@@ -228,7 +236,13 @@ def main(argv=None):
         archiver.run()
         print(f"\nwould have written to '{fp}' ")
 
-    if args.command == "sense":
+    if args.command == "ccraft":
+        from breathing_willow import context_slicer_openoption as cs
+        fp = args.file
+        print(f"for input file '{fp}'")
+        fpo = cs.endpoint(fp)
+        print('done. 是道')
+    elif args.command == "sense":
         if args.diff:
             report = diff.export_diff("/field")
             Path("/field/field-update.md").write_text(report)
