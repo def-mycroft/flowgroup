@@ -98,6 +98,10 @@ class ChatExportArchiver:
                 except Exception as exc:
                     print(f"Failed to write {dest_path}: {exc}")
 
+        # after all scrolls are written, generate the root index
+        # this index is the archive trailhead for browsing
+        KernelIndexPage().run(self.output_dir)
+
 
 class ThreadParser:
     """Parses individual conversation files into structured HTML with user/agent turns."""
