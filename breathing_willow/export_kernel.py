@@ -267,6 +267,70 @@ class KernelIndexPage:
     simply write the index file to disk.
     """
 
+    def run(self, directory: str | Path) -> None:
+        """Scan ``directory`` and write an ``index.html`` summarizing its scrolls."""
+        from os import listdir
+        from pathlib import Path
+        import html
+        import re
+
+        dir_path = Path(directory)
+        files = []
+        for name in listdir(dir_path):
+            m = re.match(r"(\d+)-conversation\.html$", name)
+            if not m:
+                continue
+            try:
+                num = int(m.group(1))
+            except ValueError:
+                num = 0
+            files.append((num, dir_path / name))
+        files.sort(key=lambda x: x[0])
+
+        entries: list[tuple[str, str, str]] = []
+        for _, fpath in files:
+            try:
+                text = fpath.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            date_match = re.search(r'<div class="date">([^<]+)</div>', text)
+            date_str = date_match.group(1) if date_match else ""
+            user_match = re.search(
+                r'<div class="user-turn">.*?<h2>zero:</h2>(.*?)</div>',
+                text,
+                re.DOTALL,
+            )
+            snippet_raw = user_match.group(1) if user_match else ""
+            snippet_text = re.sub(r"<[^>]+>", " ", snippet_raw)
+            snippet_words = snippet_text.split()
+            snippet = " ".join(snippet_words[:20])
+            entries.append((date_str, fpath.name, html.escape(snippet)))
+
+        index_lines: list[str] = []
+        index_lines.append("<html><head><meta charset='utf-8'>")
+        index_lines.append(
+            "<style>body{font-family:sans-serif;} h2{margin-top:1em;} ul{list-style:none;padding:0;} li{margin:0.2em 0;}</style>"
+        )
+        index_lines.append("</head><body>")
+        index_lines.append("<h1>Archive Index</h1>")
+
+        current_date = None
+        for date_str, fname, snippet in entries:
+            if date_str != current_date:
+                if current_date is not None:
+                    index_lines.append("</ul>")
+                current_date = date_str
+                index_lines.append(f"<h2>{html.escape(date_str)}</h2>")
+                index_lines.append("<ul>")
+            line = f'<li><a href="{html.escape(fname)}">{html.escape(fname)}</a> – {snippet}</li>'
+            index_lines.append(line)
+        if current_date is not None:
+            index_lines.append("</ul>")
+
+        index_lines.append("</body></html>")
+
+        (dir_path / "index.html").write_text("\n".join(index_lines), encoding="utf-8")
+
 
 class ScrollTableOfContents:
     """Inject a table of contents into each scroll HTML file.
@@ -294,6 +358,40 @@ class ScrollTableOfContents:
     meaningful fragments of each turn. It should feel lightweight, embedded, 
     and skimmable — a rhythm map, not a wall of text.
     """
+
+    def render(self, turns: list[dict]) -> str:
+        """Return an HTML table of contents generated from ``turns``."""
+        from html import escape
+
+        entries: list[str] = []
+        for idx, msg in enumerate(turns, 1):
+            role = msg.get("author")
+            if role not in {"user", "assistant"}:
+                continue
+            prefix = "zero:" if role == "user" else "tide:"
+            content = msg.get("content", "")
+            text = " ".join(content.replace("\n", " ").split())
+            words = text.split()[:12]
+            label = f"{prefix} {' '.join(words)}"
+            entries.append(
+                f'<li><a href="#turn-{idx:03d}">{escape(label)}</a></li>'
+            )
+
+        groups: list[list[str]] = []
+        for i in range(0, len(entries), 20):
+            groups.append(entries[i : i + 20])
+
+        lines: list[str] = []
+        lines.append('<div class="toc" style="font-size:0.9em;margin-bottom:1em">')
+        for g_idx, group in enumerate(groups, 1):
+            start = (g_idx - 1) * 20 + 1
+            end = start + len(group) - 1
+            lines.append(f'<h3>Turns {start}\u2013{end}</h3>')
+            lines.append("<ul>")
+            lines.extend(group)
+            lines.append("</ul>")
+        lines.append("</div>")
+        return "\n".join(lines)
 
 
 class TurnSummaryAnnotator:
@@ -325,4 +423,62 @@ class TurnSummaryAnnotator:
     turn speaks its own orientation. When skimming a long thread, the user 
     can catch the rhythm, content, and structure at a glance.
     """
+
+    def run(self, messages: list[dict]) -> list[str]:
+        """Return HTML blocks for ``messages`` with summary annotations."""
+        import html
+        import re
+        from collections import Counter
+
+        try:  # attempt to load nltk stopwords
+            import nltk
+
+            try:
+                stop_words = set(nltk.corpus.stopwords.words("english"))
+            except LookupError:
+                nltk.download("stopwords", quiet=True)
+                stop_words = set(nltk.corpus.stopwords.words("english"))
+        except Exception:
+            stop_words = {
+                "the",
+                "and",
+                "to",
+                "of",
+                "a",
+                "in",
+                "that",
+                "it",
+                "is",
+                "for",
+                "on",
+                "with",
+                "as",
+                "this",
+                "by",
+                "an",
+                "be",
+            }
+
+        blocks: list[str] = []
+        for idx, msg in enumerate(messages, 1):
+            role = msg.get("author")
+            if role not in {"user", "assistant"}:
+                continue
+            prefix = "zero" if role == "user" else "tide"
+            content = msg.get("content", "")
+            esc_content = html.escape(content).replace("\n", "<br>\n")
+            blocks.append(f'<div class="{role}-turn" id="turn-{idx:03d}"><h2>{prefix}:</h2>{esc_content}</div>')
+
+            words = [w.lower() for w in re.findall(r"[A-Za-z']+", content)]
+            filtered = [w for w in words if w not in stop_words]
+            common = [w for w, _ in Counter(filtered).most_common(5)]
+            summary = " ".join(common)
+            annot = (
+                f'<div class="turn-summary" style="font-size:smaller;color:#666;">'
+                f'\ud83d\udd0d Summary: {html.escape(summary)} — [{len(content)} chars]'
+                "</div>"
+            )
+            blocks.append(annot)
+
+        return blocks
 
