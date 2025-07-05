@@ -242,3 +242,87 @@ class ThreadParser:
         return html_text
 
 
+class KernelIndexPage:
+    """Generate a root-level index.html listing all exported scrolls.
+
+    This method scans a directory of HTML scrolls generated from ChatGPT exports
+    and writes an index file named `index.html` into that directory. The index
+    provides a chronological, grouped-by-date overview of the archive’s scrolls,
+    with each entry linking to the scroll file, displaying its filename, the
+    extracted date string (e.g. "2025-07-01"), and a preview snippet drawn from
+    the first user prompt in the file. Filenames are assumed to follow the
+    pattern `NNN-conversation.html`.
+
+    Requirements:
+    - Use only standard Python libraries (e.g., os, re, html, datetime).
+    - Sort scrolls chronologically based on filename prefix (e.g. "003").
+    - Extract the date string and first user prompt by reading from each file.
+    - Group scroll links by date (if possible), and maintain clean visual rhythm.
+    - Output must be valid HTML viewable in any basic browser or Markdown preview.
+    - Avoid JavaScript or external CSS. Minimal inline CSS is permitted.
+
+    The goal is to create a stable, walkable entrypoint into the archive that 
+    immediately orients the user. The visual layout should echo clarity: a quiet 
+    trailhead where each scroll announces its tone with a glance. Return nothing;
+    simply write the index file to disk.
+    """
+
+
+class ScrollTableOfContents:
+    """Inject a table of contents into each scroll HTML file.
+
+    Write a method that reads a parsed conversation scroll (as a list of 
+    user/assistant message dicts with content and author keys), and outputs 
+    a single HTML string representing a scroll-specific table of contents. 
+    Each TOC entry should be a jump link (<a href="#...">) pointing to an 
+    anchor above the corresponding turn in the scroll, using sequential IDs 
+    like `turn-001`, `turn-002`, etc. The label for each TOC entry should 
+    be the first 8–12 words of the user/assistant message (after stripping 
+    newlines and trimming whitespace), prefixed with either “zero:” or “tide:”.
+
+    Requirements:
+    - TOC should be a single styled <div> element suitable for injecting at 
+      the top of the scroll HTML.
+    - If there are more than 20 turns, break the TOC into sections of 20, 
+      each with a subheading (e.g., “Turns 1–20”, “Turns 21–40”).
+    - Do not use JavaScript or external CSS. Use inline styles if needed.
+    - Assume each turn has already been assigned a sequential ID.
+    - The method should return the generated TOC as a string, not write to disk.
+    - Use only standard Python libraries such as `html` and `textwrap`.
+
+    The goal is to let users quickly navigate long scrolls by skimming 
+    meaningful fragments of each turn. It should feel lightweight, embedded, 
+    and skimmable — a rhythm map, not a wall of text.
+    """
+
+
+class TurnSummaryAnnotator:
+    """Generate end-of-turn summaries with keyphrase and token count annotations.
+
+    Write a method that processes a list of messages (each a dict with 'author'
+    and 'content' keys) and returns an updated list of HTML turn blocks, where
+    each user/assistant message is followed by a lightweight annotation block.
+    This block includes two things: (1) the number of characters in the message,
+    and (2) a five-word summary based on most frequent, meaningful tokens.
+
+    For each message:
+    - Tokenize the content, strip punctuation, lowercase, and remove common 
+      stopwords (using `nltk` or `spacy`, no model training required).
+    - Count token frequencies and select the top 5 most common as a summary.
+    - Include a small styled block at the end of the turn that reads:
+      “🔍 Summary: [token1 token2 token3 token4 token5] — [123 chars]”
+    - Ensure all HTML remains well-formed and valid.
+
+    Requirements:
+    - Works only on `user` and `assistant` messages; others are skipped.
+    - Tokenization should be fast and robust; fallback if external libraries fail.
+    - Returns HTML strings with summary blocks embedded, but does not write to disk.
+    - No JavaScript or external styling; inline styling allowed but minimal.
+    - Make sure special characters in tokens or content are safely escaped.
+
+    This summary annotation is meant to act as a foothold for the reader. 
+    It helps the user reenter the flow of a scroll without rereading — each 
+    turn speaks its own orientation. When skimming a long thread, the user 
+    can catch the rhythm, content, and structure at a glance.
+    """
+
