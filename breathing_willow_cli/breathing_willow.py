@@ -219,11 +219,14 @@ def main(argv=None):
         from breathing_willow.export_kernel import ChatExportArchiver
         from datetime import datetime
         from os.path import join
+        fp = '/l/gds/chatgpt-exports'
+        print(f"will write to '{fp}'")
         now = datetime.now()
-        fpo = Path(join('/l/gds/chatgpt-exports', now.strftime('%Y-%m-%d')))
+        fpo = Path(join(fp, now.strftime('%Y-%m-%d')))
         fpi = Path(args.file)
         archiver = ChatExportArchiver(fpi, fpo)
         archiver.run()
+        print(f"\nwould have written to '{fp}' ")
 
     if args.command == "sense":
         if args.diff:
