@@ -1,23 +1,32 @@
 from pathlib import Path
 import tiktoken
 
-def snip_file_to_last_tokens(fp, context_scope='max') -> str:
-    """Snips a file's content to the last N tokens based on context_scope.
 
-    This function reads the content of the file at `fp`, encodes it using the GPT-4o
-    tokenizer, and returns only the last N tokens of the text, where N depends on the
-    selected `context_scope`.
+def snip_file_to_last_tokens(fp, context_scope='practical', aggressive=False) -> str:
+    """Snips a file to retain only the last N tokens of text content.
 
-    If `context_scope='max'`, the function uses the full context window of GPT-4o, 
-    approximately 128,000 tokens. This setting ensures no relevant context is lost, 
-    suitable for full-document ingestion, memory construction, or longform synthesis.
+    Reads a file, tokenizes its contents using the GPT tokenizer, and returns
+    (or optionally overwrites) only the final N tokens. The value of N is chosen
+    based on the `context_scope` setting, which controls whether to preserve a
+    maximum or practical context window for downstream processing.
 
-    If `context_scope='practical'`, the function uses 3,000 tokens. This value is chosen
-    to reflect the rough upper bound of recent, immediately relevant content in most 
-    conversations, prompts, or extractive tasks. It avoids overhead while preserving
-    useful trailing context.
+    ## Parameters
+    fp : str or Path
+        Path to the input file to be snipped.
+    context_scope : {'max', 'practical'}, optional
+        Token retention policy. If 'max', retains 128,000 tokens. If 'practical',
+        retains 3,000. Defaults to 'practical'.
+    aggressive : bool, optional
+        If True, overwrites the original file with the snipped output. If False,
+        returns the truncated text as a string. Defaults to False.
 
-    Valid values for `context_scope`: 'max', 'practical'.
+    ## Returns
+    str
+        The truncated text content, unless `aggressive` is True.
+
+    ## Raises
+    ValueError
+        If `context_scope` is not one of {'max', 'practical'}.
     """
     if context_scope == 'max':
         n_tokens = 128_000  # GPT-4o max context length
@@ -30,7 +39,12 @@ def snip_file_to_last_tokens(fp, context_scope='max') -> str:
     text = Path(fp).read_text(encoding='utf-8')
     tokens = enc.encode(text)
     snipped_tokens = tokens[-n_tokens:]
-    return enc.decode(snipped_tokens)
 
+    o = enc.decode(snipped_tokens)
+    if not aggressive:
+        return o
+    else:
+        with open(fp, 'w') as f:
+            f.write(o)
 
 endpoint = snip_file_to_last_tokens
