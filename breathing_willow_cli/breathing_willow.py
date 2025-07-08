@@ -216,6 +216,16 @@ def main(argv=None):
         help="directory to save version snapshots (default: alongside file)",
     )
 
+    snip_parser = subparsers.add_parser(
+        "snip-file", help="truncate file to last practical tokens"
+    )
+    snip_parser.add_argument(
+        "-f",
+        "--file",
+        required=True,
+        help="path to markdown file to snip",
+    )
+
     args = parser.parse_args(argv)
     version = get_version()
 
@@ -277,32 +287,24 @@ def main(argv=None):
         clusters = wg.cluster_terms()
         append_shaping_log(src, clusters)
     elif args.command == "snip-file":
-        # TODO - implement 
-        # here, 
-################################################################################
-# BEGIN PROMPT
-"""
-prompt for codex
-tranquil-mosswood
-14551f77-583a-4174-b10e-d05181f15d2d
+        from breathing_willow import snip_file as sf
+        import tiktoken
 
-you'll implement the following: when I run `willow snip-file -f /field/prompt.md`, 
-function snip_file_to_last_tokens will be used as below: 
+        fp = Path(args.file)
+        if not fp.exists():
+            raise SystemExit(f"file not found: {fp}")
 
-```snippet1
-from breathing_willow import snip_file as sf
-In [4]: sf.snip_file_to_last_tokens('/field/prompt.md', context_scope='practical', 
-    aggressive=True); # devstripprompt
-```
-... fully integrate this into the cli. make sure to print out what his
-happening. 
+        enc = tiktoken.encoding_for_model("gpt-4")
+        before_text = fp.read_text(encoding="utf-8")
+        before_tokens = len(enc.encode(before_text))
+        print(f"File '{fp}' has {before_tokens} tokens before snipping.")
 
-importantly, start by telling user how many tokens there are, then after running
-snip_file_to_last_tokens, re-evalute fresh to count tokens. 
+        print("Snipping file to last practical context...")
+        sf.snip_file_to_last_tokens(str(fp), context_scope="practical", aggressive=True)
 
-"""
-# END PROMPT
-################################################################################
+        after_text = fp.read_text(encoding="utf-8")
+        after_tokens = len(enc.encode(after_text))
+        print(f"File '{fp}' now has {after_tokens} tokens after snipping.")
 if __name__ == "__main__":
     main()
 
