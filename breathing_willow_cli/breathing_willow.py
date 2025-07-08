@@ -276,7 +276,33 @@ def main(argv=None):
         wg.visualize(args.visual_archive)
         clusters = wg.cluster_terms()
         append_shaping_log(src, clusters)
+    elif args.command == "snip-file":
+        # TODO - implement 
+        # here, 
+################################################################################
+# BEGIN PROMPT
+"""
+prompt for codex
+tranquil-mosswood
+14551f77-583a-4174-b10e-d05181f15d2d
 
+you'll implement the following: when I run `willow snip-file -f /field/prompt.md`, 
+function snip_file_to_last_tokens will be used as below: 
+
+```snippet1
+from breathing_willow import snip_file as sf
+In [4]: sf.snip_file_to_last_tokens('/field/prompt.md', context_scope='practical', 
+    aggressive=True); # devstripprompt
+```
+... fully integrate this into the cli. make sure to print out what his
+happening. 
+
+importantly, start by telling user how many tokens there are, then after running
+snip_file_to_last_tokens, re-evalute fresh to count tokens. 
+
+"""
+# END PROMPT
+################################################################################
 if __name__ == "__main__":
     main()
 
