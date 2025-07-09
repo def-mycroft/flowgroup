@@ -220,12 +220,27 @@ def main(argv=None):
         "snip-file", help="truncate file to last practical tokens"
     )
     snip_parser.add_argument(
-        "-f",
-        "--file",
-        default='/field/prompt.md',
-        required=True,
-        help="path to any text file to snip to last n tokens. ",
+        "-n",
+        "--n-tokens",
+        default='0',
+        required=False,
+        help="arbitrary n of last tokens. ",
     )
+    snip_parser.add_argument(
+        "-f",
+        "--input-file",
+        default='/field/prompt.md',
+        required=False,
+        help="path to text file to be snipped. ",
+    )
+    snip_parser.add_argument(
+        "-o",
+        "--output-file",
+        default='/field/prompt-snipped.md',
+        required=False,
+        help="output file",
+    )
+
 
     args = parser.parse_args(argv)
     version = get_version()
@@ -291,7 +306,7 @@ def main(argv=None):
         from breathing_willow import snip_file as sf
         import tiktoken
 
-        fp = Path(args.file)
+        fp = Path(args.input_file)
         if not fp.exists():
             raise SystemExit(f"file not found: {fp}")
 
@@ -301,11 +316,16 @@ def main(argv=None):
         print(f"file '{fp}' has {before_tokens} tokens before snipping.")
 
         print("snipping file to last practical context...")
-        sf.snip_file_to_last_tokens(str(fp), context_scope="practical", aggressive=True)
+        text = sf.snip_file_to_last_tokens(str(fp), context_scope="practical",
+                                    aggressive=False, n_tokens=args.n_tokens)
+        fpo = Path(args.output_file)
+        with open(fpo, 'w') as f:
+            f.write(text)
 
-        after_text = fp.read_text(encoding="utf-8")
+        after_text = fpo.read_text(encoding="utf-8")
         after_tokens = len(enc.encode(after_text))
-        print(f"file '{fp}' now has {after_tokens} tokens after snipping.")
+        print(f"file '{fpo}' now has {after_tokens} tokens after snipping.")
+        print(f"wrote '{fpo}'")
 
 if __name__ == "__main__":
     main()
