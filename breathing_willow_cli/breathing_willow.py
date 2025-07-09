@@ -222,8 +222,9 @@ def main(argv=None):
     snip_parser.add_argument(
         "-f",
         "--file",
+        default='/field/prompt.md',
         required=True,
-        help="path to markdown file to snip",
+        help="path to any text file to snip to last n tokens. ",
     )
 
     args = parser.parse_args(argv)
@@ -297,14 +298,15 @@ def main(argv=None):
         enc = tiktoken.encoding_for_model("gpt-4")
         before_text = fp.read_text(encoding="utf-8")
         before_tokens = len(enc.encode(before_text))
-        print(f"File '{fp}' has {before_tokens} tokens before snipping.")
+        print(f"file '{fp}' has {before_tokens} tokens before snipping.")
 
-        print("Snipping file to last practical context...")
+        print("snipping file to last practical context...")
         sf.snip_file_to_last_tokens(str(fp), context_scope="practical", aggressive=True)
 
         after_text = fp.read_text(encoding="utf-8")
         after_tokens = len(enc.encode(after_text))
-        print(f"File '{fp}' now has {after_tokens} tokens after snipping.")
+        print(f"file '{fp}' now has {after_tokens} tokens after snipping.")
+
 if __name__ == "__main__":
     main()
 
