@@ -32,3 +32,33 @@ def generate_surfacing(fp_values='/field/values.md', i='',
         'cname':cname, 'uuid':i, 
     })
 
+
+
+def render_compare_prompt(text_prompt: str, fp_values: str = '/field/values.md',
+                           fp_objective: str = '/field/objective.md') -> str:
+    """Render a Stage 3 comparison prompt container.
+
+    Parameters
+    ----------
+    text_prompt : str
+        The surfacing prompt text to package.
+    fp_values : str
+        Path to the values file.
+    fp_objective : str
+        Path to the fuzzy objective file.
+
+    Returns
+    -------
+    str
+        Rendered markdown text for comparison.
+    """
+    tmpl = Template(load_asset('prompt-compare-s3', ext='jinja2'))
+    with open(fp_values, 'r') as f:
+        values = f.read()
+    with open(fp_objective, 'r') as f:
+        objective = f.read()
+    return tmpl.render({
+        'text_prompt': text_prompt,
+        'value_statements': values,
+        'fuzzy_objective': objective,
+    })
