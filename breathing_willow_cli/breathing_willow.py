@@ -249,8 +249,15 @@ def main(argv=None):
         "--step01-objvals-draft0",
         action='store_true', 
         required=False,
-        help=("step0 and step1: infer objective-values, write init. "),
-    )
+        help=("steps 0-1: infer objective-values, write init. "),
+    ),
+    prompt_shape_parser.add_argument(
+        "-s2",
+        "--step2-make-surfacing",
+        action='store_true', 
+        required=False,
+        help=("step 2: given a prompt and values, make surfacing. "),
+    ),
     prompt_shape_parser.add_argument(
         '-o', 
         '--output-file',
@@ -263,9 +270,21 @@ def main(argv=None):
         help='values that will be used for shaping. ',
     ),
     prompt_shape_parser.add_argument(
+        '-j', 
+        '--objective-file',
+        default='/field/objective.md',
+        help='fuzzy objective statement. ',
+    ),
+    prompt_shape_parser.add_argument(
         '-f', 
         '--input-file',
         default='/field/prompt.md'
+    ),
+    prompt_shape_parser.add_argument(
+        '-e', 
+        '--excess-file',
+        default='',
+        help='any desired shaping context for step2. ',
     ),
 
     args = parser.parse_args(argv)
@@ -354,6 +373,7 @@ def main(argv=None):
         print(f"wrote '{fpo}'")
     elif args.command == "promptdev-bootstrap":
         from breathing_willow.watchful_fog_dev_kernel import infer_structure
+        from breathing_willow.watchful_fog_dev_kernel import generate_surfacing
         from breathing_willow.helpers import strip_markdown_formatting
 
         if args.step01_objvals_draft0:
@@ -366,6 +386,28 @@ def main(argv=None):
             with open(fpo, 'w') as f:
                 f.write(prompt_text)
             print(f"wrote '{fpo}'. ")
+        elif args.step2_make_surfacing:
+            from uuid import uuid4 as uuid
+            from os.path import join
+            from codenamize import codenamize
+
+            fp_values = args.values_file
+            fp_objective = args.objective_file
+            fp_prompt = args.input_file
+            fp_excess = args.excess_file
+            if fp_excess:
+                with open(fp_excess, 'r') as f:
+                    text_excess = f.read()
+            i = str(uuid())
+            x = i.split('-')[0]
+            fp_output = join('/field', f"surfacing {codenamize(i)} {x}.md")
+            text = generate_surfacing(fp_values=fp_values,
+                                      text_excess=text_excess,
+                                      fp_objective=fp_objective,
+                                      fp_prompt=fp_prompt, i=i)
+            with open(fp_output, 'w') as f:
+                f.write(text)
+            print(f"wrote '{fp_output}'")
 
 if __name__ == "__main__":
     main()
