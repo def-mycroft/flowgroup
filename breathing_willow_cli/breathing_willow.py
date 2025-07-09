@@ -241,6 +241,32 @@ def main(argv=None):
         help="output file",
     )
 
+    prompt_shape_parser = subparsers.add_parser(
+        "promptdev-bootstrap", help="shape from a seed prompt. "
+    )
+    prompt_shape_parser.add_argument(
+        "-s0",
+        "--step01-objvals-draft0",
+        action='store_true', 
+        required=False,
+        help=("step0 and step1: infer objective-values, write init. "),
+    )
+    prompt_shape_parser.add_argument(
+        '-o', 
+        '--output-file',
+        default='/field/prompt-output.md',
+    ),
+    prompt_shape_parser.add_argument(
+        '-v', 
+        '--values-file',
+        default='/field/values.md',
+        help='values that will be used for shaping. ',
+    ),
+    prompt_shape_parser.add_argument(
+        '-f', 
+        '--input-file',
+        default='/field/prompt.md'
+    ),
 
     args = parser.parse_args(argv)
     version = get_version()
@@ -326,9 +352,20 @@ def main(argv=None):
         after_tokens = len(enc.encode(after_text))
         print(f"file '{fpo}' now has {after_tokens} tokens after snipping.")
         print(f"wrote '{fpo}'")
+    elif args.command == "promptdev-bootstrap":
+        from breathing_willow.watchful_fog_dev_kernel import infer_structure
+        from breathing_willow.helpers import strip_markdown_formatting
+
+        if args.step01_objvals_draft0:
+            fp = args.input_file
+            strip_markdown_formatting(fp)
+            with open(fp, 'r') as f:
+                text = f.read()
+            prompt_text = infer_structure(text)
+            fpo = args.output_file
+            with open(fpo, 'w') as f:
+                f.write(prompt_text)
+            print(f"wrote '{fpo}'. ")
 
 if __name__ == "__main__":
     main()
-
-
-

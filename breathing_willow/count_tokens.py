@@ -6,3 +6,5 @@ def get_token_count_model(text, model='gpt-4o'):
     # charge by. 
     n_tokens = 0
     return n_tokens
+
+
