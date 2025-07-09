@@ -1,3 +1,30 @@
+"""
+
+**codex cli dev notes** 
+
+cracked-reed
+44887c88-715a-4119-bda6-f78f99bc9eab
+
+---
+
+Refactor this Python CLI module. Its current structure is tangled and difficult to maintain or extend. Your task is to organize it into a more coherent, modular architecture, preserving existing functionality while improving readability and separation of concerns.
+
+Specific goals:
+
+* Extract CLI subcommands into their own module or file, ideally as individual handler functions registered into the CLI via a clear `register_subcommands()` pattern.
+* Move business logic (e.g. diff export, snapshot saving, prompt shaping) out of the CLI file and into named functions within relevant internal modules. The CLI layer should only dispatch and validate arguments.
+* Clean up the global block at the end (`if args.command == ...`) using a command registry or dispatcher dictionary.
+* Ensure all helper functions (like `_tag_cloud`, `_extract_uuids`) are placed in a utilities module and not embedded inline unless truly local.
+* Maintain existing behavior, including all the CLI arguments, file paths, and environment variable usage.
+* Replace magic strings (like hardcoded file paths) with top-level constants or config patterns if appropriate.
+* Improve docstrings and inline comments where they add clarity, especially around expected file formats and CLI flow.
+
+The codebase is used on Ubuntu in a scripting context, and correctness/stability of the CLI is critical. Use good judgment on balancing modularity with simplicity.
+
+Begin by analyzing the module and outlining your refactoring plan in code comments. Then produce the cleaned-up version.
+
+
+"""
 import argparse
 from pathlib import Path
 from w_cli import diff
@@ -466,3 +493,5 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+
