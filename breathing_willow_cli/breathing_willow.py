@@ -274,29 +274,31 @@ def main(argv=None):
         '-o', 
         '--output-file',
         default='/field/prompt-output.md',
+        help='output file. default: /field/prompt-output.md',
     ),
     prompt_shape_parser.add_argument(
         '-v', 
         '--values-file',
         default='/field/values.md',
-        help='values that will be used for shaping. ',
+        help="values that will be used for shaping. default: /field/values.md",
     ),
     prompt_shape_parser.add_argument(
         '-j', 
         '--objective-file',
         default='/field/objective.md',
-        help='fuzzy objective statement. ',
+        help='fuzzy objective statement. default: /field/objective.md',
     ),
     prompt_shape_parser.add_argument(
         '-f', 
         '--input-file',
-        default='/field/prompt.md'
+        default='/field/prompt.md',
+        help='input file. default:/field/prompt.md',
     ),
     prompt_shape_parser.add_argument(
         '-e', 
         '--excess-file',
         default='',
-        help='any desired shaping context for step2. ',
+        help='any desired shaping context for step2. often /field/excess.md',
     ),
 
     args = parser.parse_args(argv)
@@ -399,7 +401,13 @@ def main(argv=None):
             fpo = args.output_file
             with open(fpo, 'w') as f:
                 f.write(prompt_text)
-            print(f"wrote '{fpo}'. ")
+            print(f"wrote '{fpo}', run that to get values,objective,prompt ")
+            print(f"now update these files: ")
+            from os.path import join
+            for fn in ('values', 'objective', 'prompt', 'excess'):
+                fp = join('/field', f"{fn}.md")
+                print(f"* {fp}")
+            print()
         elif args.step2_make_surfacing:
             from uuid import uuid4 as uuid
             from os.path import join
@@ -412,6 +420,8 @@ def main(argv=None):
             if fp_excess:
                 with open(fp_excess, 'r') as f:
                     text_excess = f.read()
+            else:
+                text_excess = '<none>'
             i = str(uuid())
             x = i.split('-')[0]
             fp_output = join('/field', f"surfacing {codenamize(i)} {x}.md")
@@ -422,6 +432,7 @@ def main(argv=None):
             with open(fp_output, 'w') as f:
                 f.write(text)
             print(f"wrote '{fp_output}'")
+            print(f"now you have a surfacing. if you have at least a few, onto next!")
         elif args.step3_package_compare:
             import random
             from breathing_willow.watchful_fog_dev_kernel import render_compare_prompt
