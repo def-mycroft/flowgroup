@@ -254,9 +254,21 @@ def main(argv=None):
     prompt_shape_parser.add_argument(
         "-s2",
         "--step2-make-surfacing",
-        action='store_true', 
+        action='store_true',
         required=False,
         help=("step 2: given a prompt and values, make surfacing. "),
+    ),
+    prompt_shape_parser.add_argument(
+        "-s3",
+        "--step3-package-compare",
+        action='store_true',
+        required=False,
+        help=("step 3: package surfacings for comparison."),
+    ),
+    prompt_shape_parser.add_argument(
+        "--keys",
+        default='',
+        help='pipe-separated uuid substrings for surfacing prompts',
     ),
     prompt_shape_parser.add_argument(
         '-o', 
@@ -361,9 +373,11 @@ def main(argv=None):
         print(f"file '{fp}' has {before_tokens} tokens before snipping.")
 
         print("snipping file to last practical context...")
-        text = sf.snip_file_to_last_tokens(str(fp), context_scope="practical",
-                                    aggressive=False, n_tokens=args.n_tokens)
+        text = sf.snip_file_to_last_tokens(
+            str(fp), context_scope="practical", aggressive=True
+        )
         fpo = Path(args.output_file)
+        fpo.parent.mkdir(parents=True, exist_ok=True)
         with open(fpo, 'w') as f:
             f.write(text)
 
@@ -408,6 +422,36 @@ def main(argv=None):
             with open(fp_output, 'w') as f:
                 f.write(text)
             print(f"wrote '{fp_output}'")
+        elif args.step3_package_compare:
+            import random
+            from breathing_willow.watchful_fog_dev_kernel import render_compare_prompt
+
+            substrings = [k for k in args.keys.split('|') if k]
+            if len(substrings) < 2:
+                raise SystemExit('need at least two keys')
+            root = Path('/field')
+            matches = {}
+            for s in substrings:
+                files = [p for p in root.glob('*.md') if s in p.name]
+                if len(files) != 1:
+                    raise SystemExit(f"uuid substring '{s}' matched {len(files)} files")
+                matches[s] = files[0]
+
+            selected_keys = random.sample(list(matches.keys()), 2)
+            compare_dir = root / 'compare'
+            compare_dir.mkdir(exist_ok=True)
+
+            for key in selected_keys:
+                fp_surfacing = matches[key]
+                text_prompt = fp_surfacing.read_text()
+                out_text = render_compare_prompt(
+                    text_prompt,
+                    fp_values=args.values_file,
+                    fp_objective=args.objective_file,
+                )
+                fp_out = compare_dir / f"{key} version.md"
+                fp_out.write_text(out_text)
+                print(f"wrote '{fp_out}'")
 
 if __name__ == "__main__":
     main()
