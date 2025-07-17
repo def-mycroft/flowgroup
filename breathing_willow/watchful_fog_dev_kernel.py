@@ -2,8 +2,20 @@
 from breathing_willow.helpers import load_asset 
 from codenamize import codenamize 
 from uuid import uuid4 as uuid
+from breathing_willow.count_tokens import get_token_count_model
 
 from jinja2 import Template
+
+
+def alert_if_prompt_too_large(text: str, fp: str, threshold: int = 3000) -> None:
+    model='gpt-4o'
+    n_tokens = get_token_count_model(text, model=model)
+    if n_tokens > threshold:
+        ex = n_tokens - threshold
+        p = ex / threshold
+        print(f"\n⚠️  Prompt at '{fp}' has {n_tokens:,} tokens (model={model}).")
+        print(f"   This exceeds shaping threshold of ~{threshold:,} by {100*p:.1f}%.")
+        print("   Consider trimming for clarity, cost, and shaping alignment.\n")
 
 
 def infer_structure(text):

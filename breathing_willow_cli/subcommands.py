@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+from warnings import warn
 from pathlib import Path
 
 from w_cli import diff
@@ -100,7 +101,7 @@ def cmd_snip_file(args: argparse.Namespace) -> None:
 
     print("snipping file to last practical context...")
     text = sf.snip_file_to_last_tokens(
-        str(fp), context_scope="practical", aggressive=True
+        str(fp), context_scope="practical", aggressive=False
     )
     fpo = Path(args.output_file)
     fpo.parent.mkdir(parents=True, exist_ok=True)
@@ -117,7 +118,9 @@ def cmd_promptdev_bootstrap(args: argparse.Namespace) -> None:
     from breathing_willow.watchful_fog_dev_kernel import infer_structure
     from breathing_willow.watchful_fog_dev_kernel import generate_surfacing
     from breathing_willow.watchful_fog_dev_kernel import render_compare_prompt
+    from breathing_willow.watchful_fog_dev_kernel import alert_if_prompt_too_large
     from breathing_willow.helpers import strip_markdown_formatting
+    from breathing_willow.count_tokens import get_token_count_model
     import random
     from uuid import uuid4 as uuid
     from codenamize import codenamize
@@ -130,12 +133,16 @@ def cmd_promptdev_bootstrap(args: argparse.Namespace) -> None:
         prompt_text = infer_structure(text)
         fpo = args.output_file
         Path(fpo).write_text(prompt_text)
-        print(f"wrote '{fpo}', run that to get values,objective,prompt ")
+
+        print('\n'+'#'*80+'\n')
+        print(f"wrote '{fpo}', use that to get values, objective, prompt\n")
         print("now update these files:")
         for fn in ("values", "objective", "prompt", "excess"):
             path = join("/field", f"{fn}.md")
             print(f"* {path}")
-        print()
+        print('\n'+'#'*80+'\n')
+        alert_if_prompt_too_large(prompt_text, fpo)
+
         return
 
     if args.step2_make_surfacing:
