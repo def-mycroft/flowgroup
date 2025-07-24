@@ -61,3 +61,37 @@ def publish(filepath):
     print(link)
     return link
 
+
+def _doc_id_from_url(url: str) -> str:
+    import re
+
+    m = re.search(r"/d/([a-zA-Z0-9_-]+)", url)
+    if not m:
+        raise ValueError("unable to parse document id from url")
+    return m.group(1)
+
+
+def update(url: str, filepath: str) -> str:
+    """Update an existing Google Doc with contents of ``filepath``."""
+    if not filepath.endswith('.md'):
+        raise ValueError("Only .md files are supported")
+
+    with open(filepath, 'r') as f:
+        md_content = f.read()
+
+    html_content = markdown.markdown(md_content)
+
+    media = MediaIoBaseUpload(
+        io.BytesIO(html_content.encode('utf-8')),
+        mimetype='text/html',
+        resumable=True,
+    )
+
+    file_id = _doc_id_from_url(url)
+    service = _get_drive_service()
+    service.files().update(fileId=file_id, media_body=media).execute()
+
+    link = f"https://docs.google.com/document/d/{file_id}/edit"
+    print(link)
+    return link
+

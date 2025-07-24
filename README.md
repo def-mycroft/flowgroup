@@ -54,6 +54,8 @@ utility:
 - `vc-step` – record a short version-control loop note.
 - `docs` – build and preview this documentation site with live reload.
 - `update-net` – ingest a document into the network graph and render it.
+- `publish-field` – publish a Markdown file to Google Docs or update an
+  existing document.
 - `snip-file` – trim a text file down to a manageable token count.
 - `promptdev-bootstrap` – run a three-step shaping routine based on a seed
   prompt.

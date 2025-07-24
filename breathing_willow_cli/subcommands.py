@@ -198,6 +198,20 @@ def cmd_promptdev_bootstrap(args: argparse.Namespace) -> None:
             print(f"wrote '{fp_out}'")
 
 
+def cmd_publish_field(args: argparse.Namespace) -> None:
+    from breathing_willow import field_publish
+
+    path = args.file
+    if args.publish:
+        field_publish.publish(path)
+    elif args.update:
+        if not args.url:
+            raise SystemExit("--url is required for update")
+        field_publish.update(args.url, path)
+    else:
+        raise SystemExit("specify --publish or --update")
+
+
 def add_subcommands(subparsers: argparse._SubParsersAction) -> None:
     """Register all breathing-willow subcommands."""
 
@@ -360,4 +374,15 @@ def add_subcommands(subparsers: argparse._SubParsersAction) -> None:
         help="any desired shaping context for step2. often /field/excess.md",
     )
     shape.set_defaults(func=cmd_promptdev_bootstrap)
+
+    publish = subparsers.add_parser(
+        "publish-field", help="publish or update a markdown file to Google Docs"
+    )
+    publish.add_argument("-f", "--file", required=True, help="markdown file")
+    publish.add_argument("--publish", action="store_true", help="publish file")
+    publish.add_argument("-u", "--url", help="existing doc url")
+    publish.add_argument(
+        "--update", action="store_true", help="update the document at --url"
+    )
+    publish.set_defaults(func=cmd_publish_field)
 
