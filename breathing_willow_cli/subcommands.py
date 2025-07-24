@@ -101,7 +101,10 @@ def cmd_snip_file(args: argparse.Namespace) -> None:
 
     print("snipping file to last practical context...")
     text = sf.snip_file_to_last_tokens(
-        str(fp), context_scope="practical", aggressive=True
+        str(fp),
+        context_scope="practical",
+        aggressive=False,
+        n_tokens=args.n_tokens,
     )
     fpo = Path(args.output_file)
     fpo.parent.mkdir(parents=True, exist_ok=True)
