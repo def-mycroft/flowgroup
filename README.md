@@ -43,6 +43,24 @@ You can check the project version with:
 willow version
 ```
 
+Run `willow -h` to see a list of commands. Each subcommand exposes a focused
+utility:
+
+- `ccraft` – slice and prepare context windows for shaping.
+- `sense` – surface recent changes with conceptual diffs.
+- `module-prompt133` – bootstrap prompt stubs for the 133 process.
+- `log-prompt` – append entries to the prompt log for later review.
+- `history` – parse ChatGPT export files into Markdown archives.
+- `vc-step` – record a short version-control loop note.
+- `docs` – build and preview this documentation site with live reload.
+- `update-net` – ingest a document into the network graph and render it.
+- `snip-file` – trim a text file down to a manageable token count.
+- `promptdev-bootstrap` – run a three-step shaping routine based on a seed
+  prompt.
+
+These commands are lightweight by design. They can be chained together or used
+individually, depending on what you want to explore.
+
 ## Documentation
 
 The project now ships with a lightweight docs site powered by MkDocs.

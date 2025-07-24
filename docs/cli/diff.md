@@ -1,6 +1,6 @@
 # `w diff` Tutorial
 
-The `w diff` command measures shaping progress in a vault by comparing the recent period of writing to a previous one. It computes a conceptual diff using word clouds and outputs a markdown log with a single score.
+The `w diff` command measures shaping progress in a vault by comparing the recent period of writing to a previous one. It computes a conceptual diff using word clouds and outputs a markdown log with a single score. The same diff is available from the main CLI via `willow sense --diff`.
 
 ```bash
 w diff
