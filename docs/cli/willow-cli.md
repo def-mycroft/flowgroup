@@ -12,7 +12,7 @@ The output looks like this:
 
 ```
 usage: breathing-willow [-h] [--version]
-                        {ccraft,sense,module-prompt133,log-prompt,history,vc-step,docs,update-net,snip-file,promptdev-bootstrap} ...
+                        {ccraft,sense,module-prompt133,log-prompt,history,vc-step,docs,update-net,publish-field,snip-file,promptdev-bootstrap} ...
 ```
 
 Below is a quick summary of what each subcommand does.
@@ -44,6 +44,10 @@ Build and serve the MkDocs documentation with live reload.
 ### `update-net`
 Ingest a document into the Willow graph and render a visualization.
 Snapshots of the source can be stored alongside the file.
+
+### `publish-field`
+Publish a Markdown file from `/field` to Google Docs or update an existing
+document via its share URL.
 
 ### `snip-file`
 Truncate a text file to the last set of useful tokens. Handy for keeping prompts
