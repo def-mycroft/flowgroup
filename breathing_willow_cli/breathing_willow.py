@@ -1,4 +1,11 @@
-"""Breathing Willow command line interface."""
+"""Breathing Willow command line interface.
+
+The :mod:`breathing_willow_cli` package exposes a small command suite under the
+``willow`` entry point.  Each subcommand performs a focused task, from running a
+conceptual diff to bootstrapping prompt development files.  The CLI is intended
+to be lightweight and composable so you can weave these utilities into your own
+flows.
+"""
 
 from __future__ import annotations
 
