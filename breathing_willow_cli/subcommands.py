@@ -5,6 +5,7 @@ import subprocess
 from warnings import warn
 from pathlib import Path
 import json
+import shutil
 from uuid import uuid4
 from datetime import datetime, timezone
 
@@ -396,10 +397,16 @@ def add_subcommands(subparsers: argparse._SubParsersAction) -> None:
     agentic = subparsers.add_parser(
         "agentic", help="instantiate and manage Willow agents"
     )
-    agentic.add_argument(
+    group = agentic.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "--instantiate-clipboard-agent",
         action="store_true",
         help="create a clipboard agent",
+    )
+    group.add_argument(
+        "--load-clipboard-agent",
+        metavar="ID",
+        help="load a clipboard agent by id substring",
     )
     agentic.add_argument(
         "-o",
@@ -411,42 +418,76 @@ def add_subcommands(subparsers: argparse._SubParsersAction) -> None:
 
 
 def cmd_agentic(args: argparse.Namespace) -> None:
-    """Instantiate a :class:`ClipboardAgent` and register it."""
-    if not args.instantiate_clipboard_agent:
-        raise SystemExit("--instantiate-clipboard-agent flag is required")
+    """Instantiate or load a clipboard agent."""
+    if args.instantiate_clipboard_agent:
+        context_path = Path(args.output).expanduser()
+        if not context_path.exists():
+            context_path.parent.mkdir(parents=True, exist_ok=True)
+            metadata = {
+                "id": str(uuid4()),
+                "name": context_path.stem,
+                "role": "clipboard",
+                "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            }
+            frontmatter = (
+                "---\n"
+                + "\n".join(f"{k}: {v}" for k, v in metadata.items())
+                + "\n---\n\n# Context\n"
+            )
+            context_path.write_text(frontmatter, encoding="utf-8")
 
-    context_path = Path(args.output).expanduser()
-    if not context_path.exists():
-        context_path.parent.mkdir(parents=True, exist_ok=True)
-        metadata = {
-            "id": str(uuid4()),
-            "name": context_path.stem,
-            "role": "clipboard",
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        }
-        frontmatter = (
-            "---\n"
-            + "\n".join(f"{k}: {v}" for k, v in metadata.items())
-            + "\n---\n\n# Context\n"
+        agent = ClipboardAgent(context_path)
+
+        registry_dir = Path.home() / ".willow"
+        registry_dir.mkdir(parents=True, exist_ok=True)
+        registry_file = registry_dir / "agents.json"
+        data: dict[str, str] = {}
+        if registry_file.exists():
+            try:
+                data = json.loads(registry_file.read_text())
+            except json.JSONDecodeError:
+                data = {}
+        data[agent.name] = str(context_path)
+        registry_file.write_text(json.dumps(data, indent=2))
+
+        print(
+            f"Created Clipboard Agent '{agent.name}' at {context_path}\n"
+            "Edit this file to modify the agent's behavior."
         )
-        context_path.write_text(frontmatter, encoding="utf-8")
+        return
 
-    agent = ClipboardAgent(context_path)
-
-    registry_dir = Path.home() / ".willow"
-    registry_dir.mkdir(parents=True, exist_ok=True)
-    registry_file = registry_dir / "agents.json"
-    data: dict[str, str] = {}
-    if registry_file.exists():
+    if args.load_clipboard_agent:
+        registry_file = Path.home() / ".willow" / "agents.json"
         try:
             data = json.loads(registry_file.read_text())
+        except FileNotFoundError:
+            raise SystemExit(f"no agent registry found at {registry_file}")
         except json.JSONDecodeError:
-            data = {}
-    data[agent.name] = str(context_path)
-    registry_file.write_text(json.dumps(data, indent=2))
+            raise SystemExit(f"agent registry '{registry_file}' is invalid")
 
-    print(
-        f"Created Clipboard Agent '{agent.name}' at {context_path}\n"
-        "Edit this file to modify the agent's behavior."
+        matches = [name for name in data if args.load_clipboard_agent in name]
+        if not matches:
+            raise SystemExit(
+                f"no agent id matching '{args.load_clipboard_agent}'"
+            )
+        if len(matches) > 1:
+            raise SystemExit(
+                f"multiple agents match '{args.load_clipboard_agent}'; use a longer identifier"
+            )
+
+        agent_name = matches[0]
+        src_path = Path(data[agent_name]).expanduser()
+        dest_path = Path(args.output).expanduser()
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(src_path, dest_path)
+
+        print(
+            f"Loaded Clipboard Agent '{agent_name}'\n"
+            f"Context written to {dest_path}"
+        )
+        return
+
+    raise SystemExit(
+        "--instantiate-clipboard-agent or --load-clipboard-agent flag is required"
     )
 
