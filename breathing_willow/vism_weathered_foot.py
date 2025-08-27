@@ -1,74 +1,216 @@
+from __future__ import annotations
+
+"""Wrap Vism implementation.
+
+This module defines the ``wrap`` vism which transforms a :class:`Payload` into
+an :class:`Envelope`.  The implementation follows the specification embedded in
+the original prompt and provides a small CLI along with property-based checks.
 """
 
-要 point prompt  here is "morph prompt codex payload bytes → envelope meta weathered-foot 251ad0f0"
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, Generic, Optional, Sequence, TypeVar
+import argparse
+import base64
+import datetime as _dt
+import hashlib
+import json
+import sys
+import uuid
+from contextlib import contextmanager
 
 
-## 要 point prompt — vism #1: `wrap` (Payload → Envelope)
+T = TypeVar("T")
 
-Implement the **WrapVism** as a pure developer morphism that turns a `Payload` into an `Envelope`. Use the existing Vism scaffold (base class, ports, context, registry, CLI). Do not duplicate scaffold code; add only what’s required for this vism.
 
-**Contract (must match exactly)**
+@dataclass
+class Outcome(Generic[T]):
+    """Result of applying a vism."""
 
-* Name: `wrap`
+    ok: bool
+    value: Optional[T] = None
+    error: Optional[str] = None
+    receipts: Dict[str, Any] = field(default_factory=dict)
 
-* Version: `0.1.0`
 
-* Input type: `Payload{bytes_: bytes, media_type: str, source: str}`
+@dataclass
+class Payload:
+    """Input payload for the ``wrap`` vism."""
 
-* Output type: `Envelope{id: str, content_hash: str, created_at: str, media_type: str, source: str}`
+    bytes_: bytes
+    media_type: str
+    source: str
 
-* Invariants:
 
-1. `id` is non-empty and unique
+@dataclass
+class Envelope:
+    """Output envelope produced by the ``wrap`` vism."""
 
-2. `content_hash = sha256(payload.bytes_)`
+    id: str
+    content_hash: str
+    created_at: str
+    media_type: str
+    source: str
 
-3. `created_at` is UTC ISO-8601
 
-4. Pure: same input → same `content_hash`
+class CryptoPort:
+    """Cryptographic utilities exposed to the vism."""
 
-* Failures: `"empty_payload"` when `bytes_` is empty
+    def sha256(self, data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
 
-**Apply**
+    def uuidv7(self) -> str:
+        # Python <3.11 has no ``uuid7``; fall back to uuid4 for uniqueness.
+        return uuid.uuid7().hex if hasattr(uuid, "uuid7") else uuid.uuid4().hex
 
-* Start a telemetry span `"wrap.apply"` with fields: `source`, `media_type`.
 
-* If `bytes_` empty → return `Outcome(False, error="empty_payload")`.
+class ClockPort:
+    """Time-related utilities."""
 
-* Else:
+    def now(self) -> _dt.datetime:
+        return _dt.datetime.utcnow()
 
-* `h = ctx.crypto.sha256(bytes_)`
 
-* `eid = ctx.crypto.uuidv7()`
+class TelemetryPort:
+    """Minimal telemetry span manager."""
 
-* `ts = ctx.clock.now().isoformat()`
+    @contextmanager
+    def span(self, name: str, **fields: Any):
+        yield
 
-* Construct `Envelope(eid, h, ts, payload.media_type, payload.source)`
 
-* Return `Outcome(True, value=envelope, receipts={"content_hash": h, "created_at": ts})`
+@dataclass
+class Context:
+    """Aggregates ports available to a vism."""
 
-**Properties (runnable, no IO)**
+    crypto: CryptoPort
+    clock: ClockPort
+    telemetry: TelemetryPort
 
-* `hash_is_deterministic`: applying to `Payload(b"abc")` twice yields same `content_hash` equal to `sha256("abc")`.
 
-* `rejects_empty`: applying to `Payload(b"")` returns `ok=False` and `error="empty_payload"`.
+class Vism(Generic[T]):
+    """Base class for all visms."""
 
-**Registry & CLI**
+    name: str
+    version: str
 
-* Register instance under `REGISTRY["wrap"]`.
+    def __init__(self, ctx: Context):
+        self.ctx = ctx
 
-* Ensure CLI path runs this vism when `--vism wrap` (or corresponding JSON stdin) is used; JSON uses base64 for `bytes_` and is decoded before constructing `Payload`. Output JSON must include `ok`, `value` (as dict), `error`, `receipts`.
+    def apply(self, inp: Any) -> Outcome[T]:  # pragma: no cover - abstract
+        raise NotImplementedError
 
-**Acceptance**
 
-* Running properties prints success with no assertion failures.
+class WrapVism(Vism[Envelope]):
+    """Wrap a :class:`Payload` into an :class:`Envelope`."""
 
-* Example (stdin JSON):
+    name = "wrap"
+    version = "0.1.0"
 
-`{"vism":"wrap","input":{"bytes_":"YWJj","media_type":"text/plain","source":"share://browser"}}`
+    def apply(self, payload: Payload) -> Outcome[Envelope]:
+        with self.ctx.telemetry.span(
+            "wrap.apply", source=payload.source, media_type=payload.media_type
+        ):
+            if not payload.bytes_:
+                return Outcome(False, error="empty_payload")
 
-returns `ok:true`, `value.media_type:"text/plain"`, `receipts.content_hash` = `sha256("abc")`.
+            h = self.ctx.crypto.sha256(payload.bytes_)
+            eid = self.ctx.crypto.uuidv7()
+            ts = self.ctx.clock.now().isoformat()
 
-Keep the vism core pure, isolate side-effects behind ports, and include span logging for traceability.
+            envelope = Envelope(eid, h, ts, payload.media_type, payload.source)
+            return Outcome(
+                True,
+                value=envelope,
+                receipts={"content_hash": h, "created_at": ts},
+            )
 
-"""
+
+def _payload_from_json(data: Dict[str, Any]) -> Payload:
+    """Construct a :class:`Payload` from JSON data (base64 bytes)."""
+
+    raw = base64.b64decode(data["bytes_"])
+    return Payload(bytes_=raw, media_type=data["media_type"], source=data["source"])
+
+
+def _outcome_to_json(out: Outcome[Envelope]) -> Dict[str, Any]:
+    return {
+        "ok": out.ok,
+        "value": asdict(out.value) if out.value else None,
+        "error": out.error,
+        "receipts": out.receipts,
+    }
+
+
+def default_context() -> Context:
+    """Create a default :class:`Context` instance."""
+
+    return Context(crypto=CryptoPort(), clock=ClockPort(), telemetry=TelemetryPort())
+
+
+REGISTRY: Dict[str, Vism[Any]] = {
+    "wrap": WrapVism(default_context()),
+}
+
+
+def hash_is_deterministic() -> None:
+    ctx = default_context()
+    vism = WrapVism(ctx)
+    payload = Payload(b"abc", "text/plain", "unit-test")
+    out1 = vism.apply(payload)
+    out2 = vism.apply(payload)
+    expected = ctx.crypto.sha256(b"abc")
+    assert out1.ok and out2.ok
+    assert out1.value.content_hash == out2.value.content_hash == expected
+    print("hash_is_deterministic: ok")
+
+
+def rejects_empty() -> None:
+    ctx = default_context()
+    vism = WrapVism(ctx)
+    payload = Payload(b"", "text/plain", "unit-test")
+    out = vism.apply(payload)
+    assert not out.ok and out.error == "empty_payload"
+    print("rejects_empty: ok")
+
+
+def run_properties() -> None:
+    hash_is_deterministic()
+    rejects_empty()
+
+
+def cli(argv: Sequence[str] | None = None) -> None:
+    """Command line interface for running visms."""
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--vism")
+    parser.add_argument("--input")
+    parser.add_argument("--properties", action="store_true", help="run property checks")
+    args = parser.parse_args(argv)
+
+    if args.properties:
+        run_properties()
+        return
+
+    if args.vism:
+        vism_name = args.vism
+        payload_data = json.loads(args.input) if args.input else json.loads(sys.stdin.read())
+    else:
+        data = json.loads(sys.stdin.read())
+        vism_name = data["vism"]
+        payload_data = data["input"]
+
+    vism = REGISTRY.get(vism_name)
+    if vism is None:
+        raise SystemExit(f"unknown vism '{vism_name}'")
+
+    if vism_name == "wrap":
+        payload = _payload_from_json(payload_data)
+        out = vism.apply(payload)
+        print(json.dumps(_outcome_to_json(out)))
+    else:
+        raise SystemExit(f"unsupported vism '{vism_name}'")
+
+
+if __name__ == "__main__":
+    cli()
+
