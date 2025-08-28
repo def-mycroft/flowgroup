@@ -1,10 +1,45 @@
+
 from __future__ import annotations
 
-"""Wrap Vism implementation.
+"""Wrap Vism.
 
-This module defines the ``wrap`` vism which transforms a :class:`Payload` into
-an :class:`Envelope`.  The implementation follows the specification embedded in
-the original prompt and provides a small CLI along with property-based checks.
+This module implements the ``wrap`` vism, a pure developer morphism that
+transforms a :class:`Payload` into an immutable :class:`Envelope`. It follows
+the Morphism-First Modular Engineering (MFME) pattern: the core function is
+pure and deterministic, while all side-effects (crypto, clock, telemetry) are
+isolated behind ports and provided via a :class:`Context`.
+
+The contract is explicit:
+
+* Input: :class:`Payload` {bytes_: bytes, media_type: str, source: str}
+* Output: :class:`Envelope` {id, content_hash, created_at, media_type, source}
+* Invariants:
+  - ``id`` is non-empty and unique (uuidv7/uuid4 fallback)
+  - ``content_hash`` is SHA-256 of the payload bytes
+  - ``created_at`` is UTC ISO-8601
+  - Pure: same input → same content_hash
+  - Rejects empty payloads with error "empty_payload"
+
+The module provides:
+
+* Core class :class:`WrapVism` with ``apply`` method
+* Supporting ports (:class:`CryptoPort`, :class:`ClockPort`, :class:`TelemetryPort`)
+* Property-based checks (hash_is_deterministic, rejects_empty)
+* Registry for lookup by name
+* CLI entry point for JSON input/output with base64 payloads
+
+Usage:
+```
+
+echo '{"vism":"wrap","input":{"bytes\_":"YWJj","media\_type":"text/plain","source":"unit"}}'&#x20;
+\| python wrap\_vism.py
+
+```
+
+This prints a JSON outcome containing ok/error flags, the envelope value,
+and receipts for traceability. The module is designed as a minimal,
+scalable kernel for capture-layer development: pure morphism core, adapter
+ports for side-effects, explicit receipts for auditability.
 """
 
 from dataclasses import asdict, dataclass, field
