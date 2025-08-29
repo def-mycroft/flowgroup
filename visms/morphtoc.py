@@ -64,6 +64,19 @@ class MorphtocValue:
     generated_at: str       # ISO-8601 UTC
     entries: List[MorphtocEntry]
 
+@dataclass(frozen=True)
+class CopiedEntry:
+    file: str   # basename
+    src: str    # absolute source path
+    dest: str   # absolute dest path
+    date: str   # YYYY-MM-DD (UTC)
+    time: str   # HH:MM:SS (UTC)
+
+@dataclass(frozen=True)
+class CopiedValue:
+    generated_at: str       # ISO-8601 UTC
+    copied: List[CopiedEntry]
+
 # ----- Utilities ---------------------------------------------------------------
 
 def _utc_now_iso() -> str:
@@ -180,6 +193,56 @@ def vism_morphtoc(vault_path: str,
     receipts["bytes"] = len(md.encode("utf-8"))
     return Outcome(ok=True, value=val, receipts=receipts)
 
+def copy_recent_morphs(vault_path: str,
+                       pattern: str = "morph*.md",
+                       n: int = 17,
+                       dest_root: str = "/l/tmp") -> Outcome[CopiedValue]:
+    receipts: Dict[str, Any] = {"stage": "start"}
+    root = _expand(vault_path)
+    dest = _expand(dest_root)
+    receipts["vault"] = root
+    receipts["dest"] = dest
+
+    if not os.path.isdir(root):
+        return Outcome(ok=False, error="path_not_found", receipts=receipts)
+
+    found = _glob_morphs(root, pattern)
+    receipts["found"] = len(found)
+    if not found:
+        return Outcome(ok=False, error="no_morphs_found", receipts=receipts)
+
+    items_sorted = sorted(found, key=lambda t: (-t[1], os.path.basename(t[0]).casefold()))
+    if n is not None and n >= 0:
+        items_sorted = items_sorted[:n]
+
+    try:
+        os.makedirs(dest, exist_ok=True)
+    except OSError as e:
+        receipts["io_error"] = str(e)
+        return Outcome(ok=False, error="io_error", receipts=receipts)
+
+    copied_entries: List[CopiedEntry] = []
+    for src, mtime in items_sorted:
+        target = os.path.join(dest, os.path.basename(src))
+        try:
+            shutil.copy2(src, target)
+        except OSError as e:
+            receipts["io_error"] = str(e)
+            return Outcome(ok=False, error="io_error", receipts=receipts)
+        dt = datetime.fromtimestamp(mtime, tz=timezone.utc)
+        copied_entries.append(CopiedEntry(
+            file=os.path.basename(src),
+            src=src,
+            dest=target,
+            date=dt.date().isoformat(),
+            time=dt.strftime("%H:%M:%S"),
+        ))
+
+    val = CopiedValue(generated_at=_utc_now_iso(), copied=copied_entries)
+    receipts["stage"] = "ok"
+    receipts["copied"] = len(copied_entries)
+    return Outcome(ok=True, value=val, receipts=receipts)
+
 # ----- Request/Response glue --------------------------------------------------
 
 def _req_from_stream_or_file(arg: Optional[str]) -> Dict[str, Any]:
@@ -211,6 +274,15 @@ def _out_to_json(out: Outcome[MorphtocValue]) -> Dict[str, Any]:
             "path": out.value.path,
             "generated_at": out.value.generated_at,
             "entries": [asdict(e) for e in out.value.entries],
+        }
+    return {"ok": out.ok, "value": val, "error": out.error, "receipts": out.receipts or {}}
+
+def _copy_out_to_json(out: Outcome[CopiedValue]) -> Dict[str, Any]:
+    val = None
+    if out.value is not None:
+        val = {
+            "generated_at": out.value.generated_at,
+            "copied": [asdict(e) for e in out.value.copied],
         }
     return {"ok": out.ok, "value": val, "error": out.error, "receipts": out.receipts or {}}
 
@@ -278,6 +350,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--params", help="Comma-separated overrides: path,pattern,limit")
     p.add_argument("--install", action="store_true", help="Install launcher to ~/.local/bin")
     p.add_argument("--document", action="store_true", help=f"Write docs to {DOCS_TARGET}")
+    p.add_argument("--recent", action="store_true", help="Copy recent morphs to /l/tmp")
+    p.add_argument("--n", type=int, default=17, help="Count for --recent (default 17)")
     p.add_argument("--version", action="store_true", help="Print version and exit")
     return p
 
@@ -303,6 +377,37 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"  module  : {info['module']}", file=sys.stderr)
         print(f"  launcher: {info['launcher']}", file=sys.stderr)
         print(f"next: {VISM_CODE} --help", file=sys.stderr)
+    if args.recent:
+        try:
+            req = _req_from_stream_or_file(args.input) if args.input else {}
+            if args.params:
+                req = _merge_overrides(req, _parse_params(args.params))
+
+            if req.get("vism") not in (None, "morphtoc"):
+                raise ValueError(f"unsupported vism: {req.get('vism')}")
+
+            inp = req.get("input") or {}
+            vault = inp.get("path") or "/field"
+            pattern = inp.get("pattern") or "morph*.md"
+            n = args.n if args.n is not None else 17
+
+            out = copy_recent_morphs(vault, pattern, n)
+
+            json.dump(_copy_out_to_json(out), sys.stdout, ensure_ascii=False)
+            sys.stdout.write("\n")
+
+            if out.ok and out.value:
+                count = len(out.value.copied)
+                print(f"[{VISM_CODE}] copied {count} to /l/tmp", file=sys.stderr)
+                return 0
+            else:
+                print(f"[{VISM_CODE}] no files copied.", file=sys.stderr)
+                return 1
+
+        except KeyboardInterrupt:
+            return _error_out("aborted")
+        except Exception as e:
+            return _error_out(f"cli_error: {e}")
 
     if args.input or not acted:
         try:
