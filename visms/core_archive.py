@@ -1,6 +1,7 @@
 import json, base64, hashlib, datetime
 from pathlib import Path
 
+# morph vism Archiver v0.4.0 purer-boulder 32d0e0a7
 VISM_CODE = "archive"
 __version__ = "0.4.0"
 

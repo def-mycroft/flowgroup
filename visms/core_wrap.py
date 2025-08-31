@@ -1,6 +1,7 @@
 # wrap vism core — envelope variant
 import json, base64, hashlib, uuid, datetime
 
+# morph vism Wrap v0.3.0 lowering-burl ee79ff46
 VISM_CODE = "wrap"
 __version__ = "0.3.1"
 

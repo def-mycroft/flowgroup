@@ -1,6 +1,7 @@
 import json, shutil, hashlib, datetime
 from pathlib import Path
 
+# morph brief vism Upload Vism v0.2.0 flecked-whale e376025c
 VISM_CODE = "upload"
 __version__ = "0.4.0"
 
