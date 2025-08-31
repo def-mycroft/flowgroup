@@ -1,0 +1,9 @@
+{
+  "vism": "wrap",
+  "input": {
+    "bytes_": "aGVsbG8gd29ybGQ=",
+    "media_type": "text/plain",
+    "source": "example",
+    "meta": { "note": "hello world demo" }
+  }
+}
