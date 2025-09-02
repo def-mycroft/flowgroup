@@ -1,18 +1,18 @@
 package app.zero.inlet.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface EnvelopeDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insert(entity: EnvelopeEntity): Long
+    @Upsert
+    suspend fun upsert(envelope: Envelope): Long
 
     @Query("SELECT * FROM envelope WHERE sha256 = :sha")
-    fun findBySha(sha: String): EnvelopeEntity?
+    suspend fun findBySha(sha: String): Envelope?
 
-    @Query("SELECT COUNT(*) FROM envelope")
-    fun count(): Int
+    @Query("SELECT * FROM envelope ORDER BY created_at_utc DESC")
+    fun observeNewest(): Flow<List<Envelope>>
 }

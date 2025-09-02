@@ -58,10 +58,12 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     testImplementation(libs.junit)
 
     testImplementation(libs.androidx.work.testing)
     testImplementation(libs.robolectric)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 
     testImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.junit)
