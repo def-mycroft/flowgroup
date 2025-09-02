@@ -6,5 +6,5 @@ import androidx.room.Insert
 @Dao
 interface ReceiptDao {
     @Insert
-    fun insert(entity: ReceiptEntity): Long
+    suspend fun insert(entity: Receipt): Long
 }

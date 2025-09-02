@@ -6,5 +6,5 @@ import androidx.room.Insert
 @Dao
 interface SpanDao {
     @Insert
-    fun insert(entity: SpanEntity): Long
+    suspend fun insert(entity: Span): Long
 }
