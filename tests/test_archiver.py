@@ -6,6 +6,9 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from breathing_willow.export_kernel import ChatExportArchiver
+# To use NLTK stopwords during tests, ensure corpora are installed:
+# from breathing_willow import setup_nltk
+# setup_nltk()
 
 
 def make_conversation():

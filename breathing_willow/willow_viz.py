@@ -50,12 +50,11 @@ except Exception:  # pragma: no cover - optional dependency
 
 try:
     import nltk
-    nltk.download('punkt', quiet=True)
-    nltk.download('stopwords', quiet=True)
     from nltk.tokenize import word_tokenize
     from nltk.corpus import stopwords as nltk_stopwords
     STOP_WORDS = set(nltk_stopwords.words('english'))
 except Exception:  # missing nltk or corpus
+    # call ``breathing_willow.setup_nltk()`` to download these corpora
     word_tokenize = None
     STOP_WORDS = {
         'a', 'an', 'the', 'and', 'or', 'but', 'if', 'while', 'of', 'at', 'by',

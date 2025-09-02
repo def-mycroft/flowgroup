@@ -35,6 +35,15 @@ $ bash zzero-dev-env-setup.sh
 ```
 
 There are no strict dependencies yet, but a Python environment with `pytest` installed will help you run future tests.
+
+If you plan to use features that depend on NLTK tokenizers or stopwords, run the
+setup helper once to download the required corpora:
+
+```bash
+python -c "from breathing_willow import setup_nltk; setup_nltk()"
+```
+
+The corpora are stored locally so subsequent runs work offline.
 ## CLI Quick Start
 
 You can check the project version with:
