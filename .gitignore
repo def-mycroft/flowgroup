@@ -58,3 +58,6 @@ Thumbs.db
 # Log files
 logs/*.log
 
+# Build artifacts from android stub
+android-app/app.jar
+
