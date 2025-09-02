@@ -16,7 +16,10 @@ data class Envelope(
     val filename: String?,
     val sizeBytes: Long,
     val origin: String,
-    val target: String
+    val target: String,
+    val filePath: Path? = null,
+    val archivedPath: Path? = null,
+    val sidecarPath: Path? = null
 )
 
 /** Plan produced by the pure archive core before any side effects. */
@@ -61,13 +64,46 @@ private fun inferExtension(mediaType: String, filename: String?): String {
 
 private fun buildSidecarJson(envelope: Envelope): String {
     // Construct JSON with stable key order manually
-    return "{" +
-        "\"content_hash_sha256\":\"${envelope.contentHashSha256}\"," +
-        "\"created_at\":\"${envelope.createdAtUtc.toString()}\"," +
-        "\"media_type\":\"${envelope.mediaType}\"," +
-        (envelope.filename?.let { "\"filename\":\"$it\"," } ?: "") +
-        "\"size_bytes\":${envelope.sizeBytes}," +
-        "\"origin\":\"${envelope.origin}\"," +
-        "\"target\":\"${envelope.target}\"" +
-        "}"
+    return buildString {
+        append('{')
+        append("\"content_hash_sha256\":\"")
+        append(envelope.contentHashSha256)
+        append("\",")
+        append("\"created_at\":\"")
+        append(envelope.createdAtUtc.toString())
+        append("\",")
+        append("\"media_type\":\"")
+        append(envelope.mediaType)
+        append("\",")
+        envelope.filename?.let {
+            append("\"filename\":\"")
+            append(it)
+            append("\",")
+        }
+        append("\"size_bytes\":")
+        append(envelope.sizeBytes)
+        append(',')
+        append("\"origin\":\"")
+        append(envelope.origin)
+        append("\",")
+        append("\"target\":\"")
+        append(envelope.target)
+        append('\"')
+        envelope.filePath?.let {
+            append(",\"file_path\":\"")
+            append(it.toString())
+            append('\"')
+        }
+        envelope.archivedPath?.let {
+            append(",\"archived_path\":\"")
+            append(it.toString())
+            append('\"')
+        }
+        envelope.sidecarPath?.let {
+            append(",\"sidecar_path\":\"")
+            append(it.toString())
+            append('\"')
+        }
+        append('}')
+    }
 }
