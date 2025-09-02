@@ -436,13 +436,9 @@ class TurnSummaryAnnotator:
 
         try:  # attempt to load nltk stopwords
             import nltk
-
-            try:
-                stop_words = set(nltk.corpus.stopwords.words("english"))
-            except LookupError:
-                nltk.download("stopwords", quiet=True)
-                stop_words = set(nltk.corpus.stopwords.words("english"))
+            stop_words = set(nltk.corpus.stopwords.words("english"))
         except Exception:
+            # call ``breathing_willow.setup_nltk()`` to download these corpora
             stop_words = {
                 "the",
                 "and",

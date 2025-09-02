@@ -5,6 +5,9 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import breathing_willow.willow_viz as willow_viz
+# To run with full tokenization, ensure NLTK corpora are installed:
+# from breathing_willow import setup_nltk
+# setup_nltk()
 
 # Avoid NLTK downloads during tests
 willow_viz.word_tokenize = None

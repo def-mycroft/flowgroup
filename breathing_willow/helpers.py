@@ -4,6 +4,28 @@ import re
 _ASSET_DIR = Path(__file__).resolve().parent / "assets"
 
 
+def setup_nltk() -> None:
+    """Ensure required NLTK corpora are available.
+
+    Downloads "punkt" and "stopwords" only if the corpora are missing.
+    Clients should call this function once during setup.
+    """
+    try:  # pragma: no cover - optional dependency
+        import nltk
+    except Exception:  # pragma: no cover - missing nltk
+        return
+
+    resources = [
+        ("tokenizers/punkt", "punkt"),
+        ("corpora/stopwords", "stopwords"),
+    ]
+    for path, package in resources:
+        try:
+            nltk.data.find(path)
+        except LookupError:
+            nltk.download(package, quiet=True)
+
+
 def strip_markdown_formatting(fp: str) -> None:
     """Aggressively strip markdown formatting from a file and overwrite it."""
     path = Path(fp)
@@ -56,4 +78,4 @@ def load_asset(name, ext='txt'):
     return path.read_text()
 
 
-__all__ = ["load_asset"]
+__all__ = ["load_asset", "setup_nltk", "strip_markdown_formatting"]
