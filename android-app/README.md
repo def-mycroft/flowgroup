@@ -22,6 +22,6 @@ kotlinc \
   -include-runtime -d android-app/app.jar
 java -jar android-app/app.jar
 ```
-
+\
 The test prints a one-line morph‑grader report indicating that ordering,
  idempotency and canonicality checks pass.
