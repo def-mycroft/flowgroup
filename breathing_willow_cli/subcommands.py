@@ -96,27 +96,33 @@ def cmd_snip_file(args: argparse.Namespace) -> None:
     import tiktoken
 
     fp = Path(args.input_file)
-    if not fp.exists():
-        raise SystemExit(f"file not found: {fp}")
-
     enc = tiktoken.encoding_for_model("gpt-4")
-    before_text = fp.read_text(encoding="utf-8")
+    try:
+        before_text = fp.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        print(f"file not found: {fp}")
+        return
+    except OSError as e:
+        print(f"error reading {fp}: {e}")
+        return
+
     before_tokens = len(enc.encode(before_text))
     print(f"file '{fp}' has {before_tokens} tokens before snipping.")
 
     print("snipping file to last practical context...")
-    text = sf.snip_file_to_last_tokens(
-        str(fp),
-        context_scope="practical",
-        aggressive=False,
-        n_tokens=args.n_tokens,
-    )
     fpo = Path(args.output_file)
-    fpo.parent.mkdir(parents=True, exist_ok=True)
-    with open(fpo, "w") as f:
-        f.write(text)
+    try:
+        after_text = sf.snip_file_to_last_tokens(
+            str(fp),
+            context_scope="practical",
+            aggressive=True,
+            n_tokens=args.n_tokens,
+            output_path=fpo,
+        )
+    except Exception as e:
+        print(e)
+        return
 
-    after_text = fpo.read_text(encoding="utf-8")
     after_tokens = len(enc.encode(after_text))
     print(f"file '{fpo}' now has {after_tokens} tokens after snipping.")
     print(f"wrote '{fpo}'")
