@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 import uuid
-import datetime
+from datetime import datetime, timezone
 
 class Agent(ABC):
     """
@@ -17,14 +17,15 @@ class Agent(ABC):
         self.role = role                   # Functional or mythic role
         self.tools = tools or {}           # Tool interfaces assigned to this agent
         self.memory: List[Dict[str, Any]] = []
-        self.created_at = datetime.datetime.utcnow()
+        self.created_at = datetime.now(timezone.utc)
         self.last_active = None
 
     def observe(self, observation: Dict[str, Any]) -> None:
         """Store observation with timestamp."""
-        observation["timestamp"] = datetime.datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc)
+        observation["timestamp"] = now.isoformat().replace("+00:00", "Z")
         self.memory.append(observation)
-        self.last_active = datetime.datetime.utcnow()
+        self.last_active = now
 
     @abstractmethod
     def decide(self, goal: str, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -58,7 +59,7 @@ class Agent(ABC):
             "role": self.role,
             "tools": list(self.tools.keys()),
             "memory": self.memory,
-            "created_at": self.created_at.isoformat(),
-            "last_active": self.last_active.isoformat() if self.last_active else None
+            "created_at": self.created_at.isoformat().replace("+00:00", "Z"),
+            "last_active": self.last_active.isoformat().replace("+00:00", "Z") if self.last_active else None,
         }
 
