@@ -25,11 +25,21 @@ def test_snip_file_cli(monkeypatch, tmp_path, capsys):
 
     calls = {}
 
-    def fake_snip(fp, context_scope="practical", aggressive=False, n_tokens="0"):
+    def fake_snip(
+        fp,
+        context_scope="practical",
+        aggressive=False,
+        n_tokens="0",
+        output_path=None,
+    ):
         calls["aggressive"] = aggressive
+        calls["output_path"] = output_path
         p = Path(fp)
         tokens = FakeEnc().encode(p.read_text())
-        return FakeEnc().decode(tokens[-2:])
+        result = FakeEnc().decode(tokens[-2:])
+        if aggressive and output_path:
+            Path(output_path).write_text(result)
+        return result
 
     monkeypatch.setattr(sf, "snip_file_to_last_tokens", fake_snip)
 
@@ -38,6 +48,7 @@ def test_snip_file_cli(monkeypatch, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "has 5 tokens" in out
     assert "now has 2 tokens" in out
-    assert calls["aggressive"] is False
+    assert calls["aggressive"] is True
+    assert calls["output_path"] == out_file
     assert test_file.read_text() == "a b c d e"
     assert out_file.read_text() == "d e"
