@@ -1,5 +1,7 @@
 import argparse
+import os
 import re
+from fnmatch import fnmatch
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Sequence, Dict
@@ -21,7 +23,14 @@ def format_word_cloud(cloud: Dict[str, float]) -> str:
 
 
 
-def find_modified_texts(root: str, start: datetime, end: datetime) -> list[Path]:
+def find_modified_texts(
+    root: str,
+    start: datetime,
+    end: datetime,
+    *,
+    exclude: Sequence[str] | None = None,
+    max_depth: int | None = None,
+) -> list[Path]:
     """Return list of basic text files modified in given UTC time range.
 
     Parameters
@@ -32,6 +41,10 @@ def find_modified_texts(root: str, start: datetime, end: datetime) -> list[Path]
         Start of time range (timezone-aware, UTC).
     end : datetime
         End of time range (timezone-aware, UTC).
+    exclude : Sequence[str], optional
+        Glob-style patterns to ignore.
+    max_depth : int, optional
+        Maximum directory depth to traverse from ``root``.
 
     Returns
     -------
@@ -42,18 +55,38 @@ def find_modified_texts(root: str, start: datetime, end: datetime) -> list[Path]
     ------
     ValueError
         If start or end is not timezone-aware.
+    FileNotFoundError
+        If ``root`` does not exist.
     """
     if start.tzinfo is None or end.tzinfo is None:
         raise ValueError("start and end must be timezone-aware (UTC) datetimes")
 
+    root_path = Path(root)
+    if not root_path.exists():
+        raise FileNotFoundError(f"root path {root!r} does not exist")
+
+    def _excluded(p: Path) -> bool:
+        return any(fnmatch(str(p), pat) for pat in (exclude or []))
+
     exts = {'.txt', '.md', '.rst', '.log', '.text'}
     paths: list[Path] = []
-    for p in Path(root).rglob('*'):
-        if p.suffix.lower() not in exts:
-            continue
-        mtime = datetime.fromtimestamp(p.stat().st_mtime, timezone.utc)
-        if start <= mtime < end:
-            paths.append(p)
+    for dirpath, dirnames, filenames in os.walk(root_path):
+        current = Path(dirpath)
+        depth = len(current.relative_to(root_path).parts)
+        if max_depth is not None and depth >= max_depth:
+            dirnames[:] = []
+        if exclude:
+            dirnames[:] = [d for d in dirnames if not _excluded(current / d)]
+        for name in filenames:
+            p = current / name
+            if _excluded(p) or p.suffix.lower() not in exts:
+                continue
+            try:
+                mtime = datetime.fromtimestamp(p.stat().st_mtime, timezone.utc)
+            except OSError:
+                continue
+            if start <= mtime < end:
+                paths.append(p)
     return paths
 
 
@@ -126,22 +159,58 @@ def parse_duration(text: str) -> timedelta:
     return timedelta(minutes=value)
 
 
-def _collect_docs(root: Path, start: datetime, end: datetime) -> Sequence[str]:
+def _collect_docs(
+    root: Path,
+    start: datetime,
+    end: datetime,
+    *,
+    exclude: Sequence[str] | None = None,
+    max_depth: int | None = None,
+) -> Sequence[str]:
+    if not root.exists():
+        raise FileNotFoundError(f"root path {root!r} does not exist")
+
+    def _excluded(p: Path) -> bool:
+        return any(fnmatch(str(p), pat) for pat in (exclude or []))
+
     texts: list[str] = []
-    for p in root.rglob('*.md'):
-        mtime = datetime.fromtimestamp(p.stat().st_mtime, timezone.utc)
-        if start <= mtime < end:
-            texts.append(p.read_text())
+    for dirpath, dirnames, filenames in os.walk(root):
+        current = Path(dirpath)
+        depth = len(current.relative_to(root).parts)
+        if max_depth is not None and depth >= max_depth:
+            dirnames[:] = []
+        if exclude:
+            dirnames[:] = [d for d in dirnames if not _excluded(current / d)]
+        for name in filenames:
+            p = current / name
+            if _excluded(p) or p.suffix.lower() != '.md':
+                continue
+            try:
+                mtime = datetime.fromtimestamp(p.stat().st_mtime, timezone.utc)
+            except OSError:
+                continue
+            if start <= mtime < end:
+                texts.append(p.read_text())
     return texts
 
 
-def compute_diff(root: Path, window: timedelta, back: timedelta) -> float:
+def compute_diff(
+    root: Path,
+    window: timedelta,
+    back: timedelta,
+    *,
+    exclude: Sequence[str] | None = None,
+    max_depth: int | None = None,
+) -> float:
+    if not root.exists():
+        raise FileNotFoundError(f"root path {root!r} does not exist")
+
     now = datetime.now(timezone.utc)
     current_start = now - window
     prev_start = current_start - back
     prev_end = current_start
-    current_texts = _collect_docs(root, current_start, now)
-    prev_texts = _collect_docs(root, prev_start, prev_end)
+    current_texts = _collect_docs(root, current_start, now, exclude=exclude, max_depth=max_depth)
+    prev_texts = _collect_docs(root, prev_start, prev_end, exclude=exclude, max_depth=max_depth)
     cloud_now: Dict[str, float] = {}
     for t in current_texts:
         for k,v in word_cloud(t).items():
