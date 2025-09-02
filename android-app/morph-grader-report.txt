@@ -1,0 +1,5 @@
+morph-grader report
+===================
+A: not evaluated in this stub
+B: idempotency ✅  closure ✅  drift ✅
+C: idempotency ✅  closure ✅  drift ✅
