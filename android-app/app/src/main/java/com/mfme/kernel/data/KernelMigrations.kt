@@ -19,3 +19,24 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         )
     }
 }
+
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE receipts ADD COLUMN ok INTEGER NOT NULL DEFAULT 1")
+        db.execSQL(
+            "UPDATE receipts SET ok = CASE WHEN code IN ('OK_NEW','OK_DUPLICATE') THEN 1 ELSE 0 END"
+        )
+        db.execSQL(
+            "UPDATE receipts SET code = CASE code " +
+                "WHEN 'OK_NEW' THEN 'ok_new' " +
+                "WHEN 'OK_DUPLICATE' THEN 'ok_duplicate' " +
+                "WHEN 'ERR_PERMISSION' THEN 'permission_denied' " +
+                "WHEN 'ERR_INVALID_INPUT' THEN 'empty_input' " +
+                "WHEN 'ERR_STORAGE' THEN 'storage_quota' " +
+                "WHEN 'ERR_UNAVAILABLE' THEN 'device_unavailable' " +
+                "WHEN 'ERR_IO' THEN 'device_unavailable' " +
+                "WHEN 'ERR_UNKNOWN' THEN 'unknown' " +
+                "ELSE code END"
+        )
+    }
+}

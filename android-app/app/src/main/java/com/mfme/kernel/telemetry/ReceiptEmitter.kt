@@ -1,6 +1,5 @@
 package com.mfme.kernel.telemetry
 
-import com.mfme.kernel.data.telemetry.ReceiptCode
 import com.mfme.kernel.data.telemetry.ReceiptDao
 import com.mfme.kernel.data.telemetry.ReceiptEntity
 import com.mfme.kernel.data.telemetry.SpanDao
@@ -31,23 +30,37 @@ class ReceiptEmitter(
     spanDao.insert(ended)
   }
 
-  suspend fun emit(
+  suspend fun emitV2(
+    ok: Boolean,
+    codeWire: String,
     adapter: String,
-    code: ReceiptCode,
     spanId: String,
     envelopeId: Long?,
     envelopeSha256: String?,
     message: String?
   ): ReceiptEntity = withContext(Dispatchers.IO) {
     val tsIso = clockUtc().toString()
-    val json = CanonicalReceiptJson.encode(
-      adapter = adapter, code = code, tsUtcIso = tsIso, spanId = spanId,
-      envelopeId = envelopeId, envelopeSha256 = envelopeSha256, message = message
+    val json = CanonicalReceiptJson.encodeV2(
+      ok = ok,
+      codeWire = codeWire,
+      tsUtcIso = tsIso,
+      adapter = adapter,
+      spanId = spanId,
+      envelopeId = envelopeId,
+      envelopeSha256 = envelopeSha256,
+      message = message
     )
     val sha = Hashing.sha256Hex(json.toByteArray(Charsets.UTF_8))
     val entity = ReceiptEntity(
-      adapter = adapter, code = code, tsUtcIso = tsIso, envelopeId = envelopeId,
-      envelopeSha256 = envelopeSha256, message = message, spanId = spanId, receiptSha256 = sha
+      ok = ok,
+      code = codeWire,
+      adapter = adapter,
+      tsUtcIso = tsIso,
+      envelopeId = envelopeId,
+      envelopeSha256 = envelopeSha256,
+      message = message,
+      spanId = spanId,
+      receiptSha256 = sha
     )
     val id = receiptDao.insert(entity)
     sink.writeLine(tsIso, sha, json)

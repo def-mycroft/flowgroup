@@ -2,10 +2,11 @@ package com.mfme.kernel.data
 
 import android.content.Context
 import com.mfme.kernel.adapters.share.SharePayload
-import com.mfme.kernel.data.telemetry.ReceiptCode
 import com.mfme.kernel.data.telemetry.ReceiptEntity
 import com.mfme.kernel.data.telemetry.SpanDao
+import com.mfme.kernel.telemetry.ErrorEmitter
 import com.mfme.kernel.telemetry.ReceiptEmitter
+import com.mfme.kernel.telemetry.TelemetryCode
 import com.mfme.kernel.util.sha256OfStream
 import com.mfme.kernel.util.sha256OfUtf8
 import com.mfme.kernel.util.toHex
@@ -20,6 +21,7 @@ class KernelRepositoryImpl(
     private val db: KernelDatabase,
     private val io: CoroutineDispatcher,
     private val receiptEmitter: ReceiptEmitter,
+    private val errorEmitter: ErrorEmitter,
     private val spanDao: SpanDao
 ) : KernelRepository {
 
@@ -34,11 +36,11 @@ class KernelRepositoryImpl(
         return if (existing != null) existing.id to false else db.envelopeDao().insert(env) to true
     }
 
-    private fun mapError(t: Throwable): ReceiptCode = when (t) {
-        is SecurityException -> ReceiptCode.ERR_PERMISSION
-        is IllegalArgumentException -> ReceiptCode.ERR_INVALID_INPUT
-        is java.io.IOException -> ReceiptCode.ERR_IO
-        else -> ReceiptCode.ERR_UNKNOWN
+    private fun mapError(t: Throwable): TelemetryCode = when (t) {
+        is SecurityException -> TelemetryCode.PermissionDenied
+        is IllegalArgumentException -> TelemetryCode.EmptyInput
+        is java.io.IOException -> TelemetryCode.DeviceUnavailable
+        else -> TelemetryCode.Unknown()
     }
 
     private suspend fun saveWithAdapter(adapter: String, buildEnv: suspend () -> Envelope): SaveResult = withContext(io) {
@@ -46,14 +48,29 @@ class KernelRepositoryImpl(
         try {
             val env = buildEnv()
             val (id, isNew) = persistEnvelope(env)
-            val code = if (isNew) ReceiptCode.OK_NEW else ReceiptCode.OK_DUPLICATE
-            receiptEmitter.emit(adapter, code, span.spanId, id, env.sha256, null)
+            val code = if (isNew) TelemetryCode.OkNew else TelemetryCode.OkDuplicate
+            receiptEmitter.emitV2(
+                ok = true,
+                codeWire = code.wire,
+                adapter = adapter,
+                spanId = span.spanId,
+                envelopeId = id,
+                envelopeSha256 = env.sha256,
+                message = null
+            )
             spanDao.bindEnvelope(span.spanId, id, env.sha256)
             receiptEmitter.end(span)
             if (isNew) SaveResult.Success(id) else SaveResult.Duplicate(id)
         } catch (t: Throwable) {
             val code = mapError(t)
-            receiptEmitter.emit(adapter, code, span.spanId, null, null, t.message)
+            errorEmitter.emit(
+                adapter = adapter,
+                code = code,
+                spanId = span.spanId,
+                envelopeId = null,
+                envelopeSha256 = null,
+                message = t.message
+            )
             receiptEmitter.end(span)
             SaveResult.Error(t)
         }
