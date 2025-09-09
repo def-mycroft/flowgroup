@@ -1,15 +1,11 @@
 package com.mfme.kernel.data
 
+import com.mfme.kernel.adapters.share.SharePayload
 import kotlinx.coroutines.flow.Flow
-
-sealed interface SaveResult {
-    data class Success(val envelopeId: Long): SaveResult
-    data class Duplicate(val envelopeId: Long): SaveResult
-    data class Error(val cause: Throwable): SaveResult
-}
 
 interface KernelRepository {
     suspend fun saveEnvelope(env: Envelope): SaveResult
+    suspend fun saveFromShare(payload: SharePayload): SaveResult
     fun observeReceipts(): Flow<List<Receipt>>
     fun observeEnvelopes(): Flow<List<Envelope>>
 }

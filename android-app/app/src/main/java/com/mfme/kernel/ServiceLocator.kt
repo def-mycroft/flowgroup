@@ -12,7 +12,7 @@ object ServiceLocator {
     fun repository(appContext: Context): KernelRepository {
         return repo ?: synchronized(this) {
             val database = db ?: AppModule.provideDatabase(appContext).also { db = it }
-            AppModule.provideRepository(database).also { repo = it }
+            AppModule.provideRepository(appContext, database).also { repo = it }
         }
     }
 }
