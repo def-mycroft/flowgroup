@@ -6,8 +6,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "receipts")
 data class ReceiptEntity(
   @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+  val ok: Boolean,
+  val code: String,
   val adapter: String,
-  val code: ReceiptCode,
   val tsUtcIso: String,
   val envelopeId: Long?,
   val envelopeSha256: String?,

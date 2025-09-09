@@ -1,31 +1,33 @@
 package com.mfme.kernel.telemetry
 
-import com.mfme.kernel.data.telemetry.ReceiptCode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import com.mfme.kernel.telemetry.Hashing
 
 class CanonicalReceiptJsonTest {
     @Test
     fun deterministicJsonAndHash() {
-        val json1 = CanonicalReceiptJson.encode(
-            adapter = "share",
-            code = ReceiptCode.OK_NEW,
+        val json1 = CanonicalReceiptJson.encodeV2(
+            ok = false,
+            codeWire = TelemetryCode.PermissionDenied.wire,
             tsUtcIso = "2023-01-01T00:00:00Z",
+            adapter = "share",
             spanId = "abc",
-            envelopeId = 1L,
-            envelopeSha256 = "deadbeef",
-            message = null
+            envelopeId = null,
+            envelopeSha256 = null,
+            message = "denied"
         )
-        val json2 = CanonicalReceiptJson.encode(
-            adapter = "share",
-            code = ReceiptCode.OK_NEW,
+        val json2 = CanonicalReceiptJson.encodeV2(
+            ok = false,
+            codeWire = TelemetryCode.PermissionDenied.wire,
             tsUtcIso = "2023-01-01T00:00:00Z",
+            adapter = "share",
             spanId = "abc",
-            envelopeId = 1L,
-            envelopeSha256 = "deadbeef",
-            message = null
+            envelopeId = null,
+            envelopeSha256 = null,
+            message = "denied"
         )
         assertEquals(json1, json2)
         val sha1 = Hashing.sha256Hex(json1.toByteArray(Charsets.UTF_8))
