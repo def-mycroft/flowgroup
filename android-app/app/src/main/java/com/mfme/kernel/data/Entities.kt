@@ -16,15 +16,3 @@ data class Envelope(
     val receivedAtUtc: Instant,
     val metaJson: String?
 )
-
-@Entity(tableName = "receipts", indices = [Index("envelopeSha256")])
-data class Receipt(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
-    val envelopeSha256: String,
-    val status: String,
-    val code: String,
-    val message: String?,
-    val tsUtc: Instant,
-    val spanStartNanos: Long? = null,
-    val spanEndNanos: Long? = null
-)

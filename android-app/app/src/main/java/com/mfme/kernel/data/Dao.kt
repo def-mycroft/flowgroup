@@ -17,12 +17,3 @@ interface EnvelopeDao {
     @Query("SELECT * FROM envelopes ORDER BY receivedAtUtc DESC")
     fun observeAll(): Flow<List<Envelope>>
 }
-
-@Dao
-interface ReceiptDao {
-    @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insert(receipt: Receipt): Long
-
-    @Query("SELECT * FROM receipts ORDER BY tsUtc DESC")
-    fun observeAll(): Flow<List<Receipt>>
-}

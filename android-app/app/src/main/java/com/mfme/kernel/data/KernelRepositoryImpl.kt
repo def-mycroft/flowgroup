@@ -2,13 +2,15 @@ package com.mfme.kernel.data
 
 import android.content.Context
 import com.mfme.kernel.adapters.share.SharePayload
+import com.mfme.kernel.data.telemetry.ReceiptCode
+import com.mfme.kernel.data.telemetry.ReceiptEntity
+import com.mfme.kernel.data.telemetry.SpanDao
+import com.mfme.kernel.telemetry.ReceiptEmitter
 import com.mfme.kernel.util.sha256OfStream
 import com.mfme.kernel.util.sha256OfUtf8
 import com.mfme.kernel.util.toHex
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import java.time.Instant
@@ -16,79 +18,60 @@ import java.time.Instant
 class KernelRepositoryImpl(
     private val context: Context,
     private val db: KernelDatabase,
-    private val io: CoroutineDispatcher
+    private val io: CoroutineDispatcher,
+    private val receiptEmitter: ReceiptEmitter,
+    private val spanDao: SpanDao
 ) : KernelRepository {
 
-    private val receiptsFlow = MutableSharedFlow<List<Receipt>>(replay = 1)
-
-    override fun observeReceipts(): Flow<List<Receipt>> =
-        merge(db.receiptDao().observeAll(), receiptsFlow)
+    override fun observeReceipts(): Flow<List<ReceiptEntity>> =
+        db.receiptDao().observeAll()
 
     override fun observeEnvelopes(): Flow<List<Envelope>> =
         db.envelopeDao().observeAll()
 
-    override suspend fun saveEnvelope(env: Envelope): SaveResult = withContext(io) {
-        val now = Instant.now()
-        try {
-            db.receiptDao().insert(
-                Receipt(
-                    envelopeSha256 = env.sha256,
-                    status = "pending",
-                    code = "initialized",
-                    message = null,
-                    tsUtc = now
-                )
-            )
+    private suspend fun persistEnvelope(env: Envelope): Pair<Long, Boolean> {
+        val existing = db.envelopeDao().findBySha(env.sha256)
+        return if (existing != null) existing.id to false else db.envelopeDao().insert(env) to true
+    }
 
-            val existing = db.envelopeDao().findBySha(env.sha256)
-            val id = if (existing != null) {
-                db.receiptDao().insert(
-                    Receipt(
-                        envelopeSha256 = env.sha256,
-                        status = "ok",
-                        code = "duplicate_collapse",
-                        message = null,
-                        tsUtc = Instant.now()
-                    )
-                )
-                return@withContext SaveResult.Duplicate(existing.id)
-            } else {
-                val newId = db.envelopeDao().insert(env)
-                db.receiptDao().insert(
-                    Receipt(
-                        envelopeSha256 = env.sha256,
-                        status = "ok",
-                        code = "saved",
-                        message = null,
-                        tsUtc = Instant.now()
-                    )
-                )
-                newId
-            }
-            SaveResult.Success(id)
+    private fun mapError(t: Throwable): ReceiptCode = when (t) {
+        is SecurityException -> ReceiptCode.ERR_PERMISSION
+        is IllegalArgumentException -> ReceiptCode.ERR_INVALID_INPUT
+        is java.io.IOException -> ReceiptCode.ERR_IO
+        else -> ReceiptCode.ERR_UNKNOWN
+    }
+
+    private suspend fun saveWithAdapter(adapter: String, buildEnv: suspend () -> Envelope): SaveResult = withContext(io) {
+        val span = receiptEmitter.begin(adapter)
+        try {
+            val env = buildEnv()
+            val (id, isNew) = persistEnvelope(env)
+            val code = if (isNew) ReceiptCode.OK_NEW else ReceiptCode.OK_DUPLICATE
+            receiptEmitter.emit(adapter, code, span.spanId, id, env.sha256, null)
+            spanDao.bindEnvelope(span.spanId, id, env.sha256)
+            receiptEmitter.end(span)
+            if (isNew) SaveResult.Success(id) else SaveResult.Duplicate(id)
         } catch (t: Throwable) {
-            db.receiptDao().insert(
-                Receipt(
-                    envelopeSha256 = env.sha256,
-                    status = "error",
-                    code = "exception",
-                    message = t.message,
-                    tsUtc = Instant.now()
-                )
-            )
+            val code = mapError(t)
+            receiptEmitter.emit(adapter, code, span.spanId, null, null, t.message)
+            receiptEmitter.end(span)
             SaveResult.Error(t)
         }
     }
 
-    override suspend fun saveFromShare(payload: SharePayload): SaveResult = withContext(io) {
-        try {
+    override suspend fun saveEnvelope(env: Envelope): SaveResult =
+        saveWithAdapter(env.sourcePkgRef) { env }
+
+    override suspend fun saveFromShare(payload: SharePayload): SaveResult =
+        saveWithAdapter("share") {
             val shaBytes = when (payload) {
                 is SharePayload.Text -> sha256OfUtf8(payload.text)
                 is SharePayload.Stream -> context.contentResolver.openInputStream(payload.uri)
-                    ?.use { sha256OfStream(it) } ?: return@withContext SaveResult.Error(IllegalArgumentException("stream_not_found"))
+                    ?.use { sha256OfStream(it) }
+                    ?: throw IllegalArgumentException("stream_not_found")
             }
             val shaHex = toHex(shaBytes)
-            val env = Envelope(
+            Envelope(
                 sha256 = shaHex,
                 mime = when (payload) {
                     is SharePayload.Text -> "text/plain"
@@ -100,80 +83,61 @@ class KernelRepositoryImpl(
                 receivedAtUtc = payload.receivedAtUtc,
                 metaJson = null
             )
-            saveEnvelope(env)
-        } catch (t: Throwable) {
-            SaveResult.Error(t)
         }
-    }
 
     override suspend fun saveFromCamera(bytes: ByteArray, meta: Map<String, Any?>): SaveResult =
-        withContext(io) {
-            if (bytes.size > MAX_BYTES) return@withContext SaveResult.Error(IllegalArgumentException("oversize"))
-            try {
-                val sha = MessageDigest.getInstance("SHA-256").digest(bytes)
-                val env = Envelope(
-                    sha256 = toHex(sha),
-                    mime = "image/jpeg",
-                    text = null,
-                    filename = meta["filename"] as? String,
-                    sourcePkgRef = "camera",
-                    receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
-                    metaJson = metaToJson(meta)
-                )
-                saveEnvelope(env)
-            } catch (t: Throwable) {
-                SaveResult.Error(t)
-            }
+        saveWithAdapter("camera") {
+            if (bytes.size > MAX_BYTES) throw IllegalArgumentException("oversize")
+            val sha = MessageDigest.getInstance("SHA-256").digest(bytes)
+            Envelope(
+                sha256 = toHex(sha),
+                mime = "image/jpeg",
+                text = null,
+                filename = meta["filename"] as? String,
+                sourcePkgRef = "camera",
+                receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
+                metaJson = metaToJson(meta)
+            )
         }
 
     override suspend fun saveFromMic(bytes: ByteArray, meta: Map<String, Any?>): SaveResult =
-        withContext(io) {
-            if (bytes.size > MAX_BYTES) return@withContext SaveResult.Error(IllegalArgumentException("oversize"))
-            try {
-                val sha = MessageDigest.getInstance("SHA-256").digest(bytes)
-                val env = Envelope(
-                    sha256 = toHex(sha),
-                    mime = "audio/wav",
-                    text = null,
-                    filename = meta["filename"] as? String,
-                    sourcePkgRef = "mic",
-                    receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
-                    metaJson = metaToJson(meta)
-                )
-                saveEnvelope(env)
-            } catch (t: Throwable) {
-                SaveResult.Error(t)
-            }
+        saveWithAdapter("mic") {
+            if (bytes.size > MAX_BYTES) throw IllegalArgumentException("oversize")
+            val sha = MessageDigest.getInstance("SHA-256").digest(bytes)
+            Envelope(
+                sha256 = toHex(sha),
+                mime = "audio/wav",
+                text = null,
+                filename = meta["filename"] as? String,
+                sourcePkgRef = "mic",
+                receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
+                metaJson = metaToJson(meta)
+            )
         }
 
     override suspend fun saveFromFile(uri: android.net.Uri, meta: Map<String, Any?>): SaveResult =
-        withContext(io) {
-            try {
-                val resolver = context.contentResolver
-                val size = resolver.openFileDescriptor(uri, "r")?.statSize ?: 0
-                if (size > MAX_BYTES) return@withContext SaveResult.Error(IllegalArgumentException("oversize"))
-                val sha = resolver.openInputStream(uri)?.use { sha256OfStream(it) }
-                    ?: return@withContext SaveResult.Error(IllegalArgumentException("stream_not_found"))
-                val mime = resolver.getType(uri) ?: meta["mime"] as? String
-                val env = Envelope(
-                    sha256 = toHex(sha),
-                    mime = mime,
-                    text = null,
-                    filename = meta["filename"] as? String,
-                    sourcePkgRef = "files",
-                    receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
-                    metaJson = metaToJson(meta)
-                )
-                saveEnvelope(env)
-            } catch (t: Throwable) {
-                SaveResult.Error(t)
-            }
+        saveWithAdapter("files") {
+            val resolver = context.contentResolver
+            val size = resolver.openFileDescriptor(uri, "r")?.statSize ?: 0
+            if (size > MAX_BYTES) throw IllegalArgumentException("oversize")
+            val sha = resolver.openInputStream(uri)?.use { sha256OfStream(it) }
+                ?: throw IllegalArgumentException("stream_not_found")
+            val mime = resolver.getType(uri) ?: meta["mime"] as? String
+            Envelope(
+                sha256 = toHex(sha),
+                mime = mime,
+                text = null,
+                filename = meta["filename"] as? String,
+                sourcePkgRef = "files",
+                receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
+                metaJson = metaToJson(meta)
+            )
         }
 
-    override suspend fun saveFromLocation(json: String): SaveResult = withContext(io) {
-        try {
+    override suspend fun saveFromLocation(json: String): SaveResult =
+        saveWithAdapter("location") {
             val sha = sha256OfUtf8(json)
-            val env = Envelope(
+            Envelope(
                 sha256 = toHex(sha),
                 mime = "application/json",
                 text = json,
@@ -182,16 +146,12 @@ class KernelRepositoryImpl(
                 receivedAtUtc = Instant.now(),
                 metaJson = json
             )
-            saveEnvelope(env)
-        } catch (t: Throwable) {
-            SaveResult.Error(t)
         }
-    }
 
-    override suspend fun saveFromSensors(json: String): SaveResult = withContext(io) {
-        try {
+    override suspend fun saveFromSensors(json: String): SaveResult =
+        saveWithAdapter("sensors") {
             val sha = sha256OfUtf8(json)
-            val env = Envelope(
+            Envelope(
                 sha256 = toHex(sha),
                 mime = "application/json",
                 text = json,
@@ -200,11 +160,7 @@ class KernelRepositoryImpl(
                 receivedAtUtc = Instant.now(),
                 metaJson = json
             )
-            saveEnvelope(env)
-        } catch (t: Throwable) {
-            SaveResult.Error(t)
         }
-    }
 
     private fun metaToJson(meta: Map<String, Any?>): String? {
         if (meta.isEmpty()) return null

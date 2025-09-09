@@ -1,6 +1,7 @@
 package com.mfme.kernel.data
 
 import com.mfme.kernel.adapters.share.SharePayload
+import com.mfme.kernel.data.telemetry.ReceiptEntity
 import kotlinx.coroutines.flow.Flow
 
 interface KernelRepository {
@@ -11,6 +12,6 @@ interface KernelRepository {
     suspend fun saveFromFile(uri: android.net.Uri, meta: Map<String, Any?>): SaveResult
     suspend fun saveFromLocation(json: String): SaveResult
     suspend fun saveFromSensors(json: String): SaveResult
-    fun observeReceipts(): Flow<List<Receipt>>
+    fun observeReceipts(): Flow<List<ReceiptEntity>>
     fun observeEnvelopes(): Flow<List<Envelope>>
 }

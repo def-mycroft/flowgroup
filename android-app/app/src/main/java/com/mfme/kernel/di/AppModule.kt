@@ -5,12 +5,22 @@ import androidx.room.Room
 import com.mfme.kernel.data.KernelDatabase
 import com.mfme.kernel.data.KernelRepository
 import com.mfme.kernel.data.KernelRepositoryImpl
+import com.mfme.kernel.data.MIGRATION_1_2
+import com.mfme.kernel.telemetry.NdjsonSink
+import com.mfme.kernel.telemetry.ReceiptEmitter
 import kotlinx.coroutines.Dispatchers
 
 object AppModule {
     fun provideDatabase(context: Context): KernelDatabase =
-        Room.databaseBuilder(context, KernelDatabase::class.java, "kernel.db").build()
+        Room.databaseBuilder(context, KernelDatabase::class.java, "kernel.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
-    fun provideRepository(context: Context, db: KernelDatabase): KernelRepository =
-        KernelRepositoryImpl(context, db, Dispatchers.IO)
+    fun provideReceiptEmitter(context: Context, db: KernelDatabase): ReceiptEmitter {
+        val sink = NdjsonSink(context)
+        return ReceiptEmitter(db.receiptDao(), db.spanDao(), sink)
+    }
+
+    fun provideRepository(context: Context, db: KernelDatabase, emitter: ReceiptEmitter): KernelRepository =
+        KernelRepositoryImpl(context, db, Dispatchers.IO, emitter, db.spanDao())
 }
