@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 import java.time.Instant
 
 class KernelRepositoryImpl(
@@ -103,5 +104,120 @@ class KernelRepositoryImpl(
         } catch (t: Throwable) {
             SaveResult.Error(t)
         }
+    }
+
+    override suspend fun saveFromCamera(bytes: ByteArray, meta: Map<String, Any?>): SaveResult =
+        withContext(io) {
+            if (bytes.size > MAX_BYTES) return@withContext SaveResult.Error(IllegalArgumentException("oversize"))
+            try {
+                val sha = MessageDigest.getInstance("SHA-256").digest(bytes)
+                val env = Envelope(
+                    sha256 = toHex(sha),
+                    mime = "image/jpeg",
+                    text = null,
+                    filename = meta["filename"] as? String,
+                    sourcePkgRef = "camera",
+                    receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
+                    metaJson = metaToJson(meta)
+                )
+                saveEnvelope(env)
+            } catch (t: Throwable) {
+                SaveResult.Error(t)
+            }
+        }
+
+    override suspend fun saveFromMic(bytes: ByteArray, meta: Map<String, Any?>): SaveResult =
+        withContext(io) {
+            if (bytes.size > MAX_BYTES) return@withContext SaveResult.Error(IllegalArgumentException("oversize"))
+            try {
+                val sha = MessageDigest.getInstance("SHA-256").digest(bytes)
+                val env = Envelope(
+                    sha256 = toHex(sha),
+                    mime = "audio/wav",
+                    text = null,
+                    filename = meta["filename"] as? String,
+                    sourcePkgRef = "mic",
+                    receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
+                    metaJson = metaToJson(meta)
+                )
+                saveEnvelope(env)
+            } catch (t: Throwable) {
+                SaveResult.Error(t)
+            }
+        }
+
+    override suspend fun saveFromFile(uri: android.net.Uri, meta: Map<String, Any?>): SaveResult =
+        withContext(io) {
+            try {
+                val resolver = context.contentResolver
+                val size = resolver.openFileDescriptor(uri, "r")?.statSize ?: 0
+                if (size > MAX_BYTES) return@withContext SaveResult.Error(IllegalArgumentException("oversize"))
+                val sha = resolver.openInputStream(uri)?.use { sha256OfStream(it) }
+                    ?: return@withContext SaveResult.Error(IllegalArgumentException("stream_not_found"))
+                val mime = resolver.getType(uri) ?: meta["mime"] as? String
+                val env = Envelope(
+                    sha256 = toHex(sha),
+                    mime = mime,
+                    text = null,
+                    filename = meta["filename"] as? String,
+                    sourcePkgRef = "files",
+                    receivedAtUtc = (meta["tsUtc"] as? Instant) ?: Instant.now(),
+                    metaJson = metaToJson(meta)
+                )
+                saveEnvelope(env)
+            } catch (t: Throwable) {
+                SaveResult.Error(t)
+            }
+        }
+
+    override suspend fun saveFromLocation(json: String): SaveResult = withContext(io) {
+        try {
+            val sha = sha256OfUtf8(json)
+            val env = Envelope(
+                sha256 = toHex(sha),
+                mime = "application/json",
+                text = json,
+                filename = null,
+                sourcePkgRef = "location",
+                receivedAtUtc = Instant.now(),
+                metaJson = json
+            )
+            saveEnvelope(env)
+        } catch (t: Throwable) {
+            SaveResult.Error(t)
+        }
+    }
+
+    override suspend fun saveFromSensors(json: String): SaveResult = withContext(io) {
+        try {
+            val sha = sha256OfUtf8(json)
+            val env = Envelope(
+                sha256 = toHex(sha),
+                mime = "application/json",
+                text = json,
+                filename = null,
+                sourcePkgRef = "sensors",
+                receivedAtUtc = Instant.now(),
+                metaJson = json
+            )
+            saveEnvelope(env)
+        } catch (t: Throwable) {
+            SaveResult.Error(t)
+        }
+    }
+
+    private fun metaToJson(meta: Map<String, Any?>): String? {
+        if (meta.isEmpty()) return null
+        val sanitized = meta.mapValues { (_, v) ->
+            when (v) {
+                is Instant -> v.toString()
+                else -> v
+            }
+        }
+        return org.json.JSONObject(sanitized).toString()
+    }
+
+    companion object {
+        private const val MAX_BYTES: Int = 50 * 1024 * 1024 // 50MB
     }
 }
