@@ -15,22 +15,20 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import java.time.format.DateTimeFormatter
-
 @Composable
 fun HistoryScreen(viewModel: KernelViewModel) {
     val receipts by viewModel.receipts.collectAsState()
     val envelopes by viewModel.envelopes.collectAsState()
-    val formatter = DateTimeFormatter.ISO_INSTANT
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item { Text("Receipts", style = MaterialTheme.typography.titleMedium) }
         items(receipts, key = { it.id }) { r ->
-            Column { 
-                Text("ts: ${'$'}{formatter.format(r.tsUtc)}")
-                Text("${'$'}{r.status}/${'$'}{r.code}")
+            Column {
+                Text("${'$'}{r.code.name} · ${'$'}{r.adapter} · ${'$'}{r.tsUtcIso}")
+                r.envelopeSha256?.let { Text(it) }
+                r.message?.let { Text(it) }
             }
         }
         item { Spacer(modifier = Modifier.height(24.dp)) }
