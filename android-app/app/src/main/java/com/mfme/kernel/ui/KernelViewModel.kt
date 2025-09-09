@@ -16,4 +16,24 @@ class KernelViewModel(private val repo: KernelRepository): ViewModel() {
     fun save(env: Envelope, onDone: (SaveResult) -> Unit = {}) {
         viewModelScope.launch { onDone(repo.saveEnvelope(env)) }
     }
+
+    fun saveFromCamera(bytes: ByteArray, meta: Map<String, Any?> = emptyMap(), onDone: (SaveResult) -> Unit = {}) {
+        viewModelScope.launch { onDone(repo.saveFromCamera(bytes, meta)) }
+    }
+
+    fun saveFromMic(bytes: ByteArray, meta: Map<String, Any?> = emptyMap(), onDone: (SaveResult) -> Unit = {}) {
+        viewModelScope.launch { onDone(repo.saveFromMic(bytes, meta)) }
+    }
+
+    fun saveFromFile(uri: android.net.Uri, meta: Map<String, Any?> = emptyMap(), onDone: (SaveResult) -> Unit = {}) {
+        viewModelScope.launch { onDone(repo.saveFromFile(uri, meta)) }
+    }
+
+    fun saveFromLocation(json: String, onDone: (SaveResult) -> Unit = {}) {
+        viewModelScope.launch { onDone(repo.saveFromLocation(json)) }
+    }
+
+    fun saveFromSensors(json: String, onDone: (SaveResult) -> Unit = {}) {
+        viewModelScope.launch { onDone(repo.saveFromSensors(json)) }
+    }
 }
