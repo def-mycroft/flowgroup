@@ -11,6 +11,6 @@ object AppModule {
     fun provideDatabase(context: Context): KernelDatabase =
         Room.databaseBuilder(context, KernelDatabase::class.java, "kernel.db").build()
 
-    fun provideRepository(db: KernelDatabase): KernelRepository =
-        KernelRepositoryImpl(db, Dispatchers.IO)
+    fun provideRepository(context: Context, db: KernelDatabase): KernelRepository =
+        KernelRepositoryImpl(context, db, Dispatchers.IO)
 }
