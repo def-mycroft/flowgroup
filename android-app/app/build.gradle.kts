@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "app.zero.inlet"
+    namespace = "com.mfme.kernel"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.zero.inlet"
-        minSdk = 28
+        applicationId = "com.mfme.kernel"
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -49,6 +49,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.navigation.compose)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -70,6 +72,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     // --- Room (use KSP, not kapt) ---
+    implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 }
