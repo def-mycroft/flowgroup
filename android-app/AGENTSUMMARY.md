@@ -1,65 +1,87 @@
-# Android App Design Brief (for Agents)
+# Android App – Agent Summary
 
-This module contains a minimal Android app scaffold focused on capturing, normalizing, and persisting “envelopes” of shared content and emitting telemetry receipts for operations. It favors small, testable units and Room-backed persistence with tracked schemas.
+This repo contains a minimal, test-oriented Android app that captures heterogeneous inputs, normalizes them into “envelopes”, persists them with idempotency, and emits structured telemetry. It uses Room for storage, Jetpack Compose for UI, and Coroutines throughout. The code is intentionally compact and modular to make changes easy for agents.
+
+## Modules
+- app: Main Android application (UI, adapters, repository, Room, telemetry, export integration).
+- core: Pure JVM Android library with cloud interfaces (e.g., `DriveAdapter` and types). No Android dependencies.
+- vaultlogsurface: JVM-only module reserved for vault mirroring/log surfacing experiments. Not currently wired into app code directly.
 
 ## Purpose
-- Collect inputs from multiple adapters (share sheet, camera, mic, file, location, sensors) into a unified Envelope model.
-- Persist envelopes idempotently by content hash (sha256) and surface basic history UI.
-- Emit structured telemetry receipts and spans for success/failure auditing.
+- Ingest data from share sheet, camera, mic, files, location, sensors, and SMS into a single `Envelope` model.
+- Persist envelopes idempotently by `sha256` with simple history and inspection.
+- Emit telemetry receipts/spans for every operation (success or error), with canonical JSON lines and stable hashes.
+- Optionally chain envelopes into a file-based log and mirror to an Obsidian vault (no-op by default).
 
 ## Architecture
-- UI: Jetpack Compose. Key screen: `HistoryScreen` shows receipts and envelopes with simple filtering.
-- ViewModel: `KernelViewModel` exposes flows (`observeEnvelopes`, `observeReceipts`) and save entry points for each adapter pathway.
-- Data: Room database `KernelDatabase` with entities `Envelope`, `ReceiptEntity`, `SpanEntity`; DAOs provide paging and observation. TypeConverters handle time types.
-- Repository: `KernelRepository`/`KernelRepositoryImpl` coordinates persistence and telemetry emission. Saves are idempotent by sha256.
-- Adapters: Platform-facing helpers convert platform intents/data into domain models.
-  - `ShareAdapter` extracts `SharePayload` (stream/text) from `ACTION_SEND` intents, resolving display name/size/MIME and a `sourceRef`.
-- Telemetry: Emitters (`ReceiptEmitter`, `ErrorEmitter`, NDJSON sink) record outcomes and spans; `SpanDao.insert` uses `OnConflictStrategy.REPLACE` to avoid duplicate spans.
+- UI (Compose):
+  - `KernelActivity` hosts `KernelApp` with bottom navigation.
+  - Screens: `CaptureScreen`, `HistoryScreen`, `AboutScreen`.
+  - `KernelViewModel` exposes `envelopes` and `receipts` as StateFlows and thin save methods calling the repository.
+- DI / Wiring:
+  - `AppModule` provides `KernelDatabase`, `ReceiptEmitter`, `ErrorEmitter`, `EnvelopeChainer`, and `KernelRepositoryImpl`.
+  - `ServiceLocator` lazily creates and caches a singleton repository per process.
+- Repository:
+  - `KernelRepositoryImpl` implements `KernelRepository` and `KernelRepositorySms` and owns the idempotent save logic per adapter.
+  - On each save: start span → build `Envelope` → check/insert → emit telemetry → bind span → chain/export.
+  - New dependency: `EnvelopeChainer` to append envelope hashes to a local NDJSON log and call `ObsidianExporter`.
+- Adapters:
+  - `ShareAdapter` extracts `SharePayload` (text or stream) from `ACTION_SEND` with best-effort source and metadata.
+  - Additional simple adapters for Camera/Mic/Files/Location/Sensors exist at the repository API surface; UI buttons demonstrate usage.
+- Telemetry:
+  - `ReceiptEmitter`/`ErrorEmitter` write to Room and `NdjsonSink` using a canonical, deterministic JSON shape (`CanonicalReceiptJson`).
+  - `SpanDao.insert` uses REPLACE so spans are idempotent on end.
+- Background work (stubs/POC):
+  - `UploadWorker` placeholder for background Drive uploads.
+  - `ReconcilerWorker` scans local state vs cloud via `DriveAdapter` (implementation TODO) and emits receipts (rebound/already-bound/not-found).
 
 ## Data Model (Room)
-- `Envelope`
-  - Fields: `id PK`, `sha256 UNIQUE`, `mime?`, `text?`, `filename?`, `sourcePkgRef`, `receivedAtUtc`, `metaJson?`.
-  - Unique index on `sha256` enforces idempotent saves.
-- `ReceiptEntity`
-  - Fields: `id PK`, `ok`, `code`, `adapter`, `tsUtcIso`, `envelopeId?`, `envelopeSha256?`, `message?`, `spanId`, `receiptSha256`.
-- `SpanEntity`
-  - Fields: `spanId PK`, `adapter`, `startNanos`, `endNanos`, `envelopeId?`, `envelopeSha256?`.
-- Schemas tracked under `app/schemas/...` and must be updated when entities or versions change.
+- Envelope (table `envelopes`):
+  - `id PK`, `sha256 UNIQUE`, `mime?`, `text?`, `filename?`, `sourcePkgRef`, `receivedAtUtc`, `metaJson?`.
+  - Unique index on `sha256` enforces repository idempotency.
+- Telemetry – ReceiptEntity (table `receipts`):
+  - `id PK`, `ok`, `code`, `adapter`, `tsUtcIso`, `envelopeId?`, `envelopeSha256?`, `message?`, `spanId`, `receiptSha256`.
+- Telemetry – SpanEntity (table `spans`):
+  - `spanId PK`, `adapter`, `startNanos`, `endNanos`, `envelopeId?`, `envelopeSha256?`.
+- CloudBinding (table `cloud_binding`):
+  - `envelopeId PK`, `driveFileId UNIQUE`, `uploadedAtUtc`, `md5?`, `bytes?`.
+- Migrations: versions 1→2, 2→3, 3→4 defined in `KernelMigrations.kt`. Schemas are exported under `app/schemas`.
 
 ## Key Flows
-- Share → `ShareAdapter.fromIntent` → `SharePayload` → `KernelRepository.save*` → `Envelope` insert (idempotent) → telemetry receipts/spans → `HistoryScreen` reflects via flows.
-- Direct capture (camera/mic/file/location/sensors) → `KernelViewModel.saveFrom*` → repository pathways with telemetry.
+- Share: Intent → `ShareAdapter.fromIntent` → `SharePayload` → `KernelRepository.saveFromShare` → idempotent insert → receipts/spans → optional chain/export → UI updates via flows.
+- Capture (camera/mic/file/location/sensors): UI → `KernelViewModel.saveFrom*` → repository → telemetry → UI.
+- SMS: `saveSmsOut` and `ingestSmsIn` generate envelopes, write payload for outbox, and emit receipts.
+
+## Telemetry Details
+- Canonical JSON lines ensure consistent hashing (`receiptSha256`).
+- `NdjsonSink` partitions files by UTC date (`filesDir/telemetry/YYYY-MM-DD`) with fsync-on-write for durability.
+- `TelemetryCode` provides a compact taxonomy for success/error codes (e.g., `ok_new`, `ok_duplicate`, `permission_denied`, `error_not_found`).
 
 ## Build & Test
-- Module path: `app/` (within this directory).
-- Tooling: Kotlin, Compose BOM, Material3, WorkManager, Coroutines.
-- Min/Target SDK: `minSdk=26`, `targetSdk=34`. Java/Kotlin target 17.
-- Room via KSP; schema directory configured at `app/schemas` and committed.
-- Tests: Robolectric unit tests (Android resources enabled). Coverage includes Room round‑trips, ordering, and repository idempotency.
+- Tooling: Kotlin 2.0.x, AGP 8.12.x, Compose BOM, Material3, WorkManager, Coroutines.
+- Android: `minSdk=26`, `targetSdk=34`, Java/Kotlin target 17.
+- Room via KSP with schema export at `app/schemas`.
+- Run tests: `./gradlew test` (Robolectric enabled with Android resources). Current tests cover repository idempotency, Room schema, telemetry determinism, and cloud binding DAO.
 
-## Recent Changes (context for designs)
-- Raised `minSdk` to 26; Material3 theme fixes.
-- Room configuration stabilized (KSP, schema export) and schemas added.
-- Legacy `app.zero.inlet` sources removed; consolidated under `com.mfme.kernel`.
-- Telemetry taxonomy and receipt infrastructure implemented; span insert made idempotent.
-- `HistoryScreen` string safety and simple filters (All/Errors/Ok).
+## Extension Points & TODOs
+- DriveAdapter: Provide a concrete cloud implementation (in `core`) and wire into `UploadWorker`/`ReconcilerWorker`.
+- Vault mirroring: `ObsidianExporter` is a no-op unless constructed with a root directory; plumb configuration if needed.
+- Multi-share: Add `ACTION_SEND_MULTIPLE` to `ShareAdapter` and repository.
+- History UI: Filters, details, and export affordances can expand; wire to telemetry taxonomy.
+- Migrations tests: Add cross-version migration tests to lock schemas.
 
-## Design Guardrails
-- Preserve idempotency: any new save pathway must dedupe by `sha256` and avoid duplicate spans/receipts.
-- Update Room schemas: when changing entities/DAOs/migrations, bump DB `version`, add migrations, and commit new JSON to `app/schemas/...`.
-- Keep adapters narrow: platform translation stays in adapter layer; domain/persistence in repository.
-- UI simplicity: Compose UIs should consume flows from the repository via ViewModel; avoid business logic in Composables.
-- Telemetry first: all success/error paths should emit a `ReceiptEntity` with a meaningful `code`, and bind to spans where applicable.
+## Guardrails for Changes
+- Preserve idempotency: all save paths must dedupe by `sha256`; do not create duplicate spans/receipts.
+- Update schemas: bump DB `version`, provide migrations, and commit new JSON schema files.
+- Keep adapters slim: platform translation in adapters; persistence/telemetry in repository.
+- Compose best practices: keep business logic in ViewModel/Repository; UI consumes flows.
 
-## Helpful Entrypoints (paths)
-- UI: `app/src/main/java/com/mfme/kernel/ui/HistoryScreen.kt`, `KernelViewModel.kt`
-- Adapters: `app/src/main/java/com/mfme/kernel/adapters/share/ShareAdapter.kt`
-- Data: `app/src/main/java/com/mfme/kernel/data/KernelDatabase.kt`, DAOs under `.../data/telemetry`
+## Useful Paths
+- UI: `app/src/main/java/com/mfme/kernel/ui/*`
 - Repository: `app/src/main/java/com/mfme/kernel/data/KernelRepository*.kt`
-- Schemas: `app/schemas/...`
-- Tests: `app/src/test/java/com/mfme/kernel/*Test.kt`
-
-## Open Opportunities
-- Add DB migrations tests across schema versions.
-- Expand History UI (filtering, details, export) driven by receipts taxonomy.
-- Extend adapters for multi‑share (`ACTION_SEND_MULTIPLE`) and richer metadata.
+- Telemetry: `app/src/main/java/com/mfme/kernel/telemetry/*`
+- Export: `app/src/main/java/com/mfme/kernel/export/*`
+- Room: `app/src/main/java/com/mfme/kernel/data/*` and `.../data/telemetry/*`, schemas in `app/schemas`
+- Adapters: `app/src/main/java/com/mfme/kernel/adapters/*`
+- Workers: `app/src/main/java/com/mfme/kernel/work/*`
+- Tests: `app/src/test/java/com/mfme/kernel/**`
