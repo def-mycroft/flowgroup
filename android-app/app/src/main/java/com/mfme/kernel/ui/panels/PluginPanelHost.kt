@@ -10,16 +10,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
-/** Host composable that displays panels registered in [PanelRegistry]. */
+/** Host composable that displays the provided [panels]. */
 @Composable
-fun PluginPanelHost() {
-    val panels = remember { PanelRegistry.all() }
-    var activeId by rememberSaveable { mutableStateOf(panels.firstOrNull()?.id ?: "") }
+fun PluginPanelHost(panels: List<PanelDescriptor>) {
+    var activeId by rememberSaveable(panels) { mutableStateOf(panels.firstOrNull()?.id ?: "") }
     val active = panels.firstOrNull { it.id == activeId }
 
     Scaffold(

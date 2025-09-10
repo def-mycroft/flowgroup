@@ -41,7 +41,8 @@ class PluginPanelHostTest {
         val vm = KernelViewModel(FakeRepo(), VaultConfig(context))
         compose.setContent {
             registerBuiltinPanels(vm, devMode = false)
-            KernelTheme { PluginPanelHost() }
+            val panels = PanelRegistry.all()
+            KernelTheme { PluginPanelHost(panels) }
         }
         compose.onNodeWithText("Camera").assertExists()
         compose.onNodeWithText("History").performClick()
