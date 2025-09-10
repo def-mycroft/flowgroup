@@ -2,6 +2,7 @@ package com.mfme.kernel.data.telemetry
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
 @Dao
@@ -27,7 +28,7 @@ interface ReceiptDao {
 
 @Dao
 interface SpanDao {
-  @Insert
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insert(e: SpanEntity)
 
   @Query("UPDATE spans SET envelopeId=:envId, envelopeSha256=:sha WHERE spanId=:spanId")

@@ -43,6 +43,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
 }
 
 dependencies {
@@ -71,6 +78,8 @@ dependencies {
 
     testImplementation(libs.androidx.work.testing)
     testImplementation(libs.robolectric)
+    // Ensure Android resources available to Robolectric when needed
+    // (No direct resource usage in tests, but harmless.)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 
     testImplementation(libs.androidx.test.core)
@@ -87,8 +96,6 @@ room {
 }
 
 ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
     arg("room.incremental", "true")
     arg("room.expandProjection", "true")
 }
-

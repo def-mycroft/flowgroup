@@ -3,6 +3,7 @@ package com.mfme.kernel.adapters.share
 import android.content.Context
 import android.content.Intent
 import android.provider.OpenableColumns
+import android.net.Uri
 import java.time.Instant
 
 /** Extracts a [SharePayload] from an ACTION_SEND [Intent]. */
@@ -11,7 +12,8 @@ object ShareAdapter {
         if (intent.action != Intent.ACTION_SEND) return null
         val sourceRef = intent.`package`
             ?: intent.getStringExtra(Intent.EXTRA_REFERRER_NAME)
-            ?: intent.referrer?.host ?: "unknown"
+            ?: intent.getParcelableExtra<Uri>(Intent.EXTRA_REFERRER)?.host
+            ?: "unknown"
         val nowUtc = Instant.now()
 
         intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)?.let { uri ->

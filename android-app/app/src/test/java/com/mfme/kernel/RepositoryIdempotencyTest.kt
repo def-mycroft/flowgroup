@@ -6,6 +6,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.mfme.kernel.data.Envelope
 import com.mfme.kernel.data.KernelDatabase
 import com.mfme.kernel.data.KernelRepositoryImpl
+import com.mfme.kernel.telemetry.ErrorEmitter
+import com.mfme.kernel.telemetry.NdjsonSink
+import com.mfme.kernel.telemetry.ReceiptEmitter
 import com.mfme.kernel.data.SaveResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -15,8 +18,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.time.Instant
 
+@RunWith(RobolectricTestRunner::class)
 class RepositoryIdempotencyTest {
     private lateinit var db: KernelDatabase
     private lateinit var repo: KernelRepositoryImpl
@@ -25,7 +31,10 @@ class RepositoryIdempotencyTest {
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = Room.inMemoryDatabaseBuilder(context, KernelDatabase::class.java).build()
-        repo = KernelRepositoryImpl(context, db, Dispatchers.IO)
+        val sink = NdjsonSink(context)
+        val receiptEmitter = ReceiptEmitter(db.receiptDao(), db.spanDao(), sink)
+        val errorEmitter = ErrorEmitter(receiptEmitter)
+        repo = KernelRepositoryImpl(context, db, Dispatchers.IO, receiptEmitter, errorEmitter, db.spanDao())
     }
 
     @After

@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
@@ -46,7 +47,7 @@ fun HistoryScreen(viewModel: KernelViewModel) {
         items(filtered, key = { it.id }) { r ->
             Column {
                 val glyph = if (r.ok) "✅" else "⚠️"
-                Text("$glyph ${'$'}{r.code} · ${'$'}{r.adapter} · ${'$'}{r.tsUtcIso}")
+                Text("$glyph ${r.code} · ${r.adapter} · ${r.tsUtcIso}")
                 r.envelopeSha256?.let { Text(it) }
                 r.message?.let { Text(it) }
             }
@@ -55,9 +56,9 @@ fun HistoryScreen(viewModel: KernelViewModel) {
         item { Text("Envelopes", style = MaterialTheme.typography.titleMedium) }
         items(envelopes, key = { it.id }) { e ->
             Column {
-                Text("sha256: ${'$'}{e.sha256}")
-                Text("mime: ${'$'}{e.mime ?: ""}")
-                Text("filename: ${'$'}{e.filename ?: ""}")
+                Text("sha256: ${e.sha256}")
+                Text("mime: ${e.mime ?: ""}")
+                Text("filename: ${e.filename ?: ""}")
             }
         }
     }
