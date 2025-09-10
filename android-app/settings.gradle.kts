@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "InletTest0"
-include(":app", ":core")
+include(":app", ":core", ":vaultlogsurface")
