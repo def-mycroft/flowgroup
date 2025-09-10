@@ -13,6 +13,14 @@ sealed interface TelemetryCode {
     override val ok = true
     override val wire = "ok_duplicate"
   }
+  data object OkRebound : TelemetryCode {
+    override val ok = true
+    override val wire = "ok_rebound"
+  }
+  data object OkAlreadyBound : TelemetryCode {
+    override val ok = true
+    override val wire = "ok_already_bound"
+  }
 
   // Errors
   data object PermissionDenied : TelemetryCode {
@@ -38,6 +46,10 @@ sealed interface TelemetryCode {
   data object DigestMismatch : TelemetryCode {
     override val ok = false
     override val wire = "digest_mismatch"
+  }
+  data object ErrorNotFound : TelemetryCode {
+    override val ok = false
+    override val wire = "error_not_found"
   }
   data class Unknown(val name: String = "unknown") : TelemetryCode {
     override val ok = false
