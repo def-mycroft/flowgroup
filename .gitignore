@@ -8,6 +8,7 @@ vimfolds.py
 notebooks/*png
 main.py
 d
+.gradle/
 cli.py
 
 # Byte-compiled / optimized / DLL files

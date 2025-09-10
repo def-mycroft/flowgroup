@@ -70,6 +70,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
 
     // --- Core ---
+    implementation(project(":core"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.work.runtime.ktx)
