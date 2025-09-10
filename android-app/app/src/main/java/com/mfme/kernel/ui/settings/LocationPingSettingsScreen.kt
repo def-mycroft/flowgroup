@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.rememberSnackbarHostState
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -46,7 +45,7 @@ fun LocationPingSettingsScreen() {
     val recipients = remember(recipientsText) { recipientsText.split(',').mapNotNull { it.trim().ifBlank { null } } }
     val allValid = recipients.isNotEmpty() && recipients.all { it.matches(e164Regex) }
 
-    val snack: SnackbarHostState = rememberSnackbarHostState()
+    val snack: SnackbarHostState = remember { SnackbarHostState() }
     Column(modifier = Modifier.padding(KernelTheme.tokens.spacing.md), verticalArrangement = Arrangement.spacedBy(KernelTheme.tokens.spacing.md)) {
         Text("Location Ping")
         SnackbarHost(hostState = snack)

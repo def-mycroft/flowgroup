@@ -31,7 +31,7 @@ class LocationPingController(private val context: Context) {
             ?: return Result.Error("empty_input")
 
         val fix = getLastKnownLocation() ?: run {
-            emitter.emitV2(false, TelemetryCode.DeviceUnavailable.wire, "ping_test", null, null, null, "no_location")
+            emitter.emitV2(false, TelemetryCode.DeviceUnavailable.wire, "ping_test", "", null, null, "no_location")
             return Result.Error("no_location")
         }
         val body = renderBody(fix.latitude, fix.longitude)
@@ -41,7 +41,7 @@ class LocationPingController(private val context: Context) {
                 is SaveResult.Error -> Result.Error("send_error")
             }
         } catch (se: SecurityException) {
-            emitter.emitV2(false, TelemetryCode.PermissionDenied.wire, "ping_test", null, null, null, se.message)
+            emitter.emitV2(false, TelemetryCode.PermissionDenied.wire, "ping_test", "", null, null, se.message)
             Result.Error("permission_denied")
         } catch (_: Throwable) {
             Result.Error("send_error")
@@ -78,4 +78,3 @@ class LocationPingController(private val context: Context) {
         data class Error(val reason: String) : Result
     }
 }
-

@@ -37,7 +37,7 @@ class SmsLocationPingerWorker(appContext: Context, params: WorkerParameters) : C
         val recipients = model.recipients.filter { isValidE164(it) }
         if (!model.enabled || recipients.isEmpty()) {
             // No-op success with a span-like receipt entry for observability
-            emitter.emitV2(true, TelemetryCode.OkDuplicate.wire, "pinger", spanId = null, envelopeId = null, envelopeSha256 = null, message = "disabled_or_empty")
+            emitter.emitV2(true, TelemetryCode.OkDuplicate.wire, "pinger", spanId = "", envelopeId = null, envelopeSha256 = null, message = "disabled_or_empty")
             return Result.success()
         }
 
@@ -46,13 +46,13 @@ class SmsLocationPingerWorker(appContext: Context, params: WorkerParameters) : C
         val windowStart = nowEpoch - 900
         val recent = model.sentHistoryEpochSec.filter { it >= windowStart }
         if (recent.size >= 3) {
-            emitter.emitV2(true, TelemetryCode.OkDuplicate.wire, "pinger", null, null, null, "rate_limited_window")
+            emitter.emitV2(true, TelemetryCode.OkDuplicate.wire, "pinger", "", null, null, "rate_limited_window")
             return Result.success()
         }
 
         val fix = getLastKnownLocation()
         if (fix == null) {
-            emitter.emitV2(false, TelemetryCode.DeviceUnavailable.wire, "pinger", null, null, null, "no_location")
+            emitter.emitV2(false, TelemetryCode.DeviceUnavailable.wire, "pinger", "", null, null, "no_location")
             return Result.success()
         }
 
@@ -65,9 +65,9 @@ class SmsLocationPingerWorker(appContext: Context, params: WorkerParameters) : C
                 val result = sms.send(to, body)
                 anySuccess = anySuccess || result is com.mfme.kernel.data.SaveResult.Success || result is com.mfme.kernel.data.SaveResult.Duplicate
             } catch (se: SecurityException) {
-                emitter.emitV2(false, TelemetryCode.PermissionDenied.wire, "pinger", null, null, null, se.message)
+                emitter.emitV2(false, TelemetryCode.PermissionDenied.wire, "pinger", "", null, null, se.message)
             } catch (t: Throwable) {
-                emitter.emitV2(false, TelemetryCode.DeviceUnavailable.wire, "pinger", null, null, null, t.message)
+                emitter.emitV2(false, TelemetryCode.DeviceUnavailable.wire, "pinger", "", null, null, t.message)
             }
         }
 
@@ -105,4 +105,3 @@ class SmsLocationPingerWorker(appContext: Context, params: WorkerParameters) : C
         return "$link @ $ts"
     }
 }
-
