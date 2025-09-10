@@ -9,8 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.mfme.kernel.R
+import com.mfme.kernel.ui.theme.KernelTheme
 
 @Composable
 fun AboutScreen() {
@@ -22,7 +22,7 @@ fun AboutScreen() {
         text = text,
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(KernelTheme.tokens.spacing.md)
             .verticalScroll(rememberScrollState())
     )
 }

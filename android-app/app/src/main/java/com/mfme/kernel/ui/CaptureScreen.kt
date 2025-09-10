@@ -15,7 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import com.mfme.kernel.ui.theme.KernelTheme
+import com.mfme.kernel.ui.gestures.CaptureCardDemo
 import kotlinx.coroutines.launch
 import java.time.Instant
 import com.mfme.kernel.data.SaveResult
@@ -33,13 +34,15 @@ fun CaptureScreen(viewModel: KernelViewModel) {
         scope.launch { snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short) }
     }
 
+    val tokens = KernelTheme.tokens
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(tokens.spacing.sm)
         ) {
+            item { CaptureCardDemo(viewModel) }
             item {
                 Button(
                     onClick = {
@@ -47,7 +50,7 @@ fun CaptureScreen(viewModel: KernelViewModel) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = tokens.spacing.md)
                 ) { Text("Camera") }
             }
             item {
@@ -57,7 +60,7 @@ fun CaptureScreen(viewModel: KernelViewModel) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = tokens.spacing.md)
                 ) { Text("Mic") }
             }
             item {
@@ -68,7 +71,7 @@ fun CaptureScreen(viewModel: KernelViewModel) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = tokens.spacing.md)
                 ) { Text("Files") }
             }
             item {
@@ -78,7 +81,7 @@ fun CaptureScreen(viewModel: KernelViewModel) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = tokens.spacing.md)
                 ) { Text("Location") }
             }
             item {
@@ -88,7 +91,7 @@ fun CaptureScreen(viewModel: KernelViewModel) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = tokens.spacing.md)
                 ) { Text("Sensors") }
             }
             item {
@@ -98,7 +101,7 @@ fun CaptureScreen(viewModel: KernelViewModel) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = tokens.spacing.md)
                 ) { Text("SMS") }
             }
         }
