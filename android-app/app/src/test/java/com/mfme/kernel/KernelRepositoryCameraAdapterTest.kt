@@ -8,6 +8,7 @@ import com.mfme.kernel.data.KernelRepositoryImpl
 import com.mfme.kernel.telemetry.ErrorEmitter
 import com.mfme.kernel.telemetry.NdjsonSink
 import com.mfme.kernel.telemetry.ReceiptEmitter
+import com.mfme.kernel.export.EnvelopeChainer
 import com.mfme.kernel.data.SaveResult
 import com.mfme.kernel.util.toHex
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,8 @@ class KernelRepositoryCameraAdapterTest {
         val sink = NdjsonSink(context)
         val receiptEmitter = ReceiptEmitter(db.receiptDao(), db.spanDao(), sink)
         val errorEmitter = ErrorEmitter(receiptEmitter)
-        repo = KernelRepositoryImpl(context, db, Dispatchers.IO, receiptEmitter, errorEmitter, db.spanDao())
+        val chainer = EnvelopeChainer(context)
+        repo = KernelRepositoryImpl(context, db, Dispatchers.IO, receiptEmitter, errorEmitter, db.spanDao(), chainer)
     }
 
     @After
