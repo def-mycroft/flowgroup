@@ -58,3 +58,14 @@ Thumbs.db
 # Log files
 logs/*.log
 
+# --- Android/Gradle ---
+.gradle/
+.gradle-user-home/
+.kotlin/
+.idea/
+*.iml
+local.properties
+*.bak
+
+# Android module/build outputs (module-level .gitignore also ignores /build)
+/build/
