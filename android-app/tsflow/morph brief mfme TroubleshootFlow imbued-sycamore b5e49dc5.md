@@ -78,3 +78,12 @@ This section binds **Brief → Properties → Adapters → Telemetry → Loop** 
 Coding/design agents surface and update the MFME briefs, attach runnable properties, mark adapter seams, and link spans to briefs—so every troubleshooting pass strengthens the doc lineage and keeps specs in lock-step with code.
 
 ---
+Brief Binding — imbued-sycamore
+
+- brief_id: imbued-sycamore · b5e49dc5-b13d-4a60-891d-2c5716a238cc
+- primary_property: property-history-crash
+- story: After saving a location, opening History should not crash and should show at least one Receipt/Envelope.
+- scope: Capture → History, `KernelRepositoryImpl.saveFromLocation`, `HistoryScreen`, Room flows.
+- telemetry: Link receipts/spans to this brief via message tags until dedicated fields exist.
+
+---

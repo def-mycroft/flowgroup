@@ -3,7 +3,7 @@
 Context
 - brief_id: imbued-sycamore · b5e49dc5-b13d-4a60-891d-2c5716a238cc
 - property_id: property-history-crash
-- updated: TBA
+- updated: 2025-09-10
 
 Purpose
 - Bind spans/logs to the brief/property and ensure every run emits a Receipt (red or green) with lineage.
@@ -13,11 +13,11 @@ Span/Receipt Schema
 - Receipt V2: {ok, code, tsUtcIso, adapter, message?, envelopeId?, envelopeSha256?, spanId, receiptSha256}
 
 Update Checklist
-- Ensure `ReceiptEmitter.begin/end/emitV2` wrap the relevant actions (log location, load history).
-- Attach `brief_id` and `property_id` via span/receipt metadata (message or binding API).
-- Map errors to codes using `ErrorEmitter` taxonomy.
-- Verify spans close on both success and failure, and a Receipt row is written.
+- Confirm `KernelRepositoryImpl.saveFromLocation` calls `ReceiptEmitter.begin/emitV2/end` (it does).  
+  File: `app/src/main/java/com/mfme/kernel/data/KernelRepositoryImpl.kt`.
+- For UI navigation to History, consider emitting a lightweight UI span via a UI-scoped emitter wrapper (adapter: `ui_history`).
+- Until dedicated fields exist, bind `brief_id`/`property_id` in the Receipt `message` (e.g., `"brief:imbued-sycamore property:property-history-crash"`).
+- Verify `ErrorEmitter` maps thrown errors into receipts with codes and closes the span.
 
 Done When
-- A repro or fix run yields traceable spans and a Receipt row linked to this brief/property and commit.
-
+- Repro and fix runs yield traceable spans and a Receipt row linked (at least via message) to this brief/property and commit.
