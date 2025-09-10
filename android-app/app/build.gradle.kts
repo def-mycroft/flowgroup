@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.mfme.kernel"
-    compileSdk = 36
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.mfme.kernel"
-        minSdk = 26
-        targetSdk = 36
+        minSdk = 24
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
     }
@@ -28,7 +28,10 @@ android {
     }
 
     // compose plugin usually sets this, but being explicit is harmless
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        viewBinding = true
+    }
 
     // AGP 8.5+ + compose plugin: no need to set compiler ext version manually
     // If Studio nags later, you can add:
@@ -55,6 +58,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+
+    implementation("com.google.android.material:material:1.12.0")
 
     // --- Core ---
     implementation(libs.androidx.core.ktx)
