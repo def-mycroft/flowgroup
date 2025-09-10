@@ -52,7 +52,8 @@ fun HistoryScreen(viewModel: KernelViewModel) {
                 TextButton(onClick = { filter = 3 }) { Text("SMS") }
             }
         }
-        items(filtered, key = { it.id }) { r ->
+        // Use namespaced keys so Receipt and Envelope ids can't collide in the same LazyColumn
+        items(filtered, key = { "r-${it.id}" }) { r ->
             Column {
                 val glyph = if (r.ok) "✅" else "⚠️"
                 Text("$glyph ${r.code} · ${r.adapter} · ${r.tsUtcIso}")
@@ -65,7 +66,7 @@ fun HistoryScreen(viewModel: KernelViewModel) {
             val tokens = KernelTheme.tokens
             Text("Envelopes", style = tokens.typeScale.title)
         }
-        items(envelopes, key = { it.id }) { e ->
+        items(envelopes, key = { "e-${it.id}" }) { e ->
             Column {
                 Text("sha256: ${e.sha256}")
                 Text("mime: ${e.mime ?: ""}")
