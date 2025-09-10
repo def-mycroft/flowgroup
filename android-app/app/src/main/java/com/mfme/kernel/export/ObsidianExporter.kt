@@ -64,6 +64,7 @@ class ObsidianExporter(
 
         val file = dir.findFile(fileName)
         val existingEntries = mutableListOf<DailyLogLine>()
+        var alreadyLogged = false
         if (file != null) {
             resolver.openInputStream(file.uri)?.bufferedReader()?.use { reader ->
                 var inBody = false
@@ -75,12 +76,16 @@ class ObsidianExporter(
                             if (dashCount == 2) inBody = true
                         }
                     } else if (line.startsWith("- ")) {
-                        if (line.contains(env.sha256)) return@withContext
-                        parseLine(line, date)?.let { existingEntries.add(it) }
+                        if (line.contains(env.sha256)) {
+                            alreadyLogged = true
+                        } else {
+                            parseLine(line, date)?.let { existingEntries.add(it) }
+                        }
                     }
                 }
             }
         }
+        if (alreadyLogged) return@withContext
         val entry = DailyLogLine(
             timestamp = env.receivedAtUtc,
             source = env.sourcePkgRef,
@@ -128,4 +133,3 @@ class ObsidianExporter(
         tmp.renameTo(fileName)
     }
 }
-
