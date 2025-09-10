@@ -11,7 +11,7 @@ import com.mfme.kernel.data.telemetry.SpanDao
 @Database(
     entities = [Envelope::class, ReceiptEntity::class, SpanEntity::class],
     version = 3,
-    exportSchema = true
+    exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class KernelDatabase : RoomDatabase() {

@@ -1,8 +1,9 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp)
+    id("com.android.application")
+    kotlin("android")
+    kotlin("plugin.compose")
+    id("com.google.devtools.ksp") version "2.0.21-1.0.28"
+    id("androidx.room") version "2.6.1"
 }
 
 android {
@@ -77,8 +78,17 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     // --- Room (use KSP, not kapt) ---
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
+    implementation("androidx.room:room-ktx:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
+    arg("room.expandProjection", "true")
 }
 
