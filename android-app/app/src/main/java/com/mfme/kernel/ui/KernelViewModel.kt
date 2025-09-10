@@ -3,10 +3,13 @@ package com.mfme.kernel.ui
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mfme.kernel.ui.gestures.GestureIntent
 import com.mfme.kernel.data.Envelope
 import com.mfme.kernel.data.KernelRepository
 import com.mfme.kernel.data.SaveResult
 import com.mfme.kernel.export.VaultConfig
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,6 +22,9 @@ class KernelViewModel(private val repo: KernelRepository, private val vaultConfi
     fun setVaultUri(uri: Uri) {
         viewModelScope.launch { vaultConfig.setTreeUri(uri) }
     }
+
+    private val _gestures = MutableSharedFlow<GestureIntent>(extraBufferCapacity = 16)
+    val gestures: SharedFlow<GestureIntent> = _gestures
 
     fun save(env: Envelope, onDone: (SaveResult) -> Unit = {}) {
         viewModelScope.launch { onDone(repo.saveEnvelope(env)) }
@@ -51,5 +57,8 @@ class KernelViewModel(private val repo: KernelRepository, private val vaultConfi
     fun ingestSmsIn(sender: String, body: String, onDone: (SaveResult) -> Unit = {}) {
         viewModelScope.launch { onDone(repo.ingestSmsIn(sender, body, java.time.Instant.now())) }
     }
-}
 
+    fun logGesture(intent: GestureIntent) {
+        viewModelScope.launch { _gestures.emit(intent) }
+    }
+}

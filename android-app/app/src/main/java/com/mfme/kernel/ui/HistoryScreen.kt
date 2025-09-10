@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import com.mfme.kernel.ui.theme.KernelTheme
 @Composable
 fun HistoryScreen(viewModel: KernelViewModel) {
     val receipts by viewModel.receipts.collectAsState()
@@ -33,12 +33,14 @@ fun HistoryScreen(viewModel: KernelViewModel) {
         else -> receipts
     }
 
+    val tokens = KernelTheme.tokens
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxSize().padding(tokens.spacing.md),
+        verticalArrangement = Arrangement.spacedBy(tokens.spacing.sm)
     ) {
         item {
-            Text("Receipts", style = MaterialTheme.typography.titleMedium)
+            val tokens = KernelTheme.tokens
+            Text("Receipts", style = tokens.typeScale.title)
             Column(horizontalAlignment = Alignment.Start) {
                 TextButton(onClick = { filter = 0 }) { Text("All") }
                 TextButton(onClick = { filter = 1 }) { Text("Errors") }
@@ -54,8 +56,11 @@ fun HistoryScreen(viewModel: KernelViewModel) {
                 r.message?.let { Text(it) }
             }
         }
-        item { Spacer(modifier = Modifier.height(24.dp)) }
-        item { Text("Envelopes", style = MaterialTheme.typography.titleMedium) }
+        item { Spacer(modifier = Modifier.height(tokens.spacing.lg)) }
+        item {
+            val tokens = KernelTheme.tokens
+            Text("Envelopes", style = tokens.typeScale.title)
+        }
         items(envelopes, key = { it.id }) { e ->
             Column {
                 Text("sha256: ${e.sha256}")
