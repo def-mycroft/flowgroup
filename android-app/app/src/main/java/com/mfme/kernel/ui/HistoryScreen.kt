@@ -24,6 +24,7 @@ import com.mfme.kernel.ui.theme.KernelTheme
 fun HistoryScreen(viewModel: KernelViewModel) {
     val receipts by viewModel.receipts.collectAsState()
     val envelopes by viewModel.envelopes.collectAsState()
+    val error by viewModel.error.collectAsState()
     var filter by remember { mutableStateOf(0) }
 
     val filtered = when (filter) {
@@ -38,6 +39,9 @@ fun HistoryScreen(viewModel: KernelViewModel) {
         modifier = Modifier.fillMaxSize().padding(tokens.spacing.md),
         verticalArrangement = Arrangement.spacedBy(tokens.spacing.sm)
     ) {
+        error?.let { msg ->
+            item { Text("Error loading history: $msg") }
+        }
         item {
             val tokens = KernelTheme.tokens
             Text("Receipts", style = tokens.typeScale.title)

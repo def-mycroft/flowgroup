@@ -9,14 +9,30 @@ import com.mfme.kernel.data.KernelRepository
 import com.mfme.kernel.data.SaveResult
 import com.mfme.kernel.export.VaultConfig
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class KernelViewModel(private val repo: KernelRepository, private val vaultConfig: VaultConfig) : ViewModel() {
-    val envelopes = repo.observeEnvelopes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val receipts  = repo.observeReceipts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
+
+    val envelopes = repo.observeEnvelopes()
+        .catch { e ->
+            _error.value = e.message
+            emit(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val receipts  = repo.observeReceipts()
+        .catch { e ->
+            _error.value = e.message
+            emit(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val vaultUri = vaultConfig.treeUri.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun setVaultUri(uri: Uri) {
