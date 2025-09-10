@@ -6,15 +6,19 @@ import com.mfme.kernel.ui.KernelViewModel
 class NoopGestureAdapter(
     private val viewModel: KernelViewModel,
     private val windowMs: Long = 300,
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    private val sink: ((GestureIntent) -> Unit)? = null,
 ) : GestureAdapter {
     private var lastTap = 0L
+    private var hasTapped = false
     override fun on(intent: GestureIntent) {
         if (intent == GestureIntent.Mark) {
             val now = nowMs()
-            if (now - lastTap < windowMs) return
+            if (hasTapped && now - lastTap < windowMs) return
             lastTap = now
+            hasTapped = true
         }
-        viewModel.logGesture(intent)
+        // Allow tests to inject a sink for deterministic counting without coroutines.
+        sink?.invoke(intent) ?: viewModel.logGesture(intent)
     }
 }

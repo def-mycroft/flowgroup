@@ -4,6 +4,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.mfme.kernel.ui.KernelViewModel
+import com.mfme.kernel.export.VaultConfig
+import androidx.test.core.app.ApplicationProvider
 import com.mfme.kernel.ui.theme.KernelTheme
 import com.mfme.kernel.data.KernelRepository
 import com.mfme.kernel.data.Envelope
@@ -11,6 +13,8 @@ import com.mfme.kernel.data.SaveResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Rule
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import org.junit.Test
 
 private class FakeRepo : KernelRepository {
@@ -27,12 +31,14 @@ private class FakeRepo : KernelRepository {
     override suspend fun saveFromShare(payload: com.mfme.kernel.adapters.share.SharePayload): SaveResult = SaveResult.Success(0)
 }
 
+@RunWith(RobolectricTestRunner::class)
 class PluginPanelHostTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
     fun switchingTabsShowsDifferentPanel() {
-        val vm = KernelViewModel(FakeRepo())
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val vm = KernelViewModel(FakeRepo(), VaultConfig(context))
         compose.setContent {
             registerBuiltinPanels(vm, devMode = false)
             KernelTheme { PluginPanelHost() }
@@ -42,3 +48,4 @@ class PluginPanelHostTest {
         compose.onNodeWithText("Receipts").assertExists()
     }
 }
+

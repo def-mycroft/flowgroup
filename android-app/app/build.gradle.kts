@@ -79,6 +79,8 @@ dependencies {
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     testImplementation(libs.junit)
+    // Kotlin test assertions and annotations used by unit tests
+    testImplementation(kotlin("test"))
 
     testImplementation(libs.androidx.work.testing)
     testImplementation(libs.robolectric)
@@ -103,4 +105,3 @@ ksp {
     arg("room.incremental", "true")
     arg("room.expandProjection", "true")
 }
-

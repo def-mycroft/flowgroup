@@ -59,6 +59,6 @@ class KernelViewModel(private val repo: KernelRepository, private val vaultConfi
     }
 
     fun logGesture(intent: GestureIntent) {
-        viewModelScope.launch { _gestures.emit(intent) }
+        _gestures.tryEmit(intent)
     }
 }

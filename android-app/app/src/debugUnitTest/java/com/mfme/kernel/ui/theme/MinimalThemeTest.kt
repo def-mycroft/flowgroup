@@ -4,8 +4,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertEquals
 
+@RunWith(RobolectricTestRunner::class)
 class MinimalThemeTest {
     @get:Rule val compose = createComposeRule()
 
@@ -20,3 +23,4 @@ class MinimalThemeTest {
         assertEquals(Color(0xFF0061A4), color)
     }
 }
+
