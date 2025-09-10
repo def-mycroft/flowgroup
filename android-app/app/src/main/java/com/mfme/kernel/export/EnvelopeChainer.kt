@@ -9,13 +9,11 @@ import java.io.FileOutputStream
 
 /**
  * Minimal envelope chainer that logs envelope hashes and mirrors
- * them into an optional Obsidian vault. This implementation is
- * intentionally simple for the exercise and does not attempt to
- * replicate the full MFME behavior.
+ * them into an optional Obsidian vault.
  */
 class EnvelopeChainer(
     private val appContext: Context,
-    private val exporter: ObsidianExporter = ObsidianExporter()
+    private val exporter: ObsidianExporter,
 ) {
     suspend fun chain(env: Envelope) = withContext(Dispatchers.IO) {
         val dir = File(appContext.filesDir, "telemetry").apply { mkdirs() }
@@ -25,6 +23,8 @@ class EnvelopeChainer(
             fos.write('\n'.code)
             fos.fd.sync()
         }
-        exporter.export(env)
+        exporter.upsertEnvelopeBrief(env)
+        exporter.upsertDailyLog(env)
     }
 }
+

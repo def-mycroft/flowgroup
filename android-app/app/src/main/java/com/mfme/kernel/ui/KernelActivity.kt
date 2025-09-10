@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -40,10 +41,11 @@ class KernelActivity : ComponentActivity() {
 fun KernelApp() {
     val context = LocalContext.current.applicationContext
     val repository = remember { ServiceLocator.repository(context) }
+    val vaultConfig = remember { ServiceLocator.vaultConfig(context) }
     val viewModel: KernelViewModel = viewModel(factory = object : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
-            return KernelViewModel(repository) as T
+            return KernelViewModel(repository, vaultConfig) as T
         }
     })
 
@@ -51,6 +53,7 @@ fun KernelApp() {
     val items = listOf(
         NavItem("capture", "Capture", Icons.Filled.CameraAlt),
         NavItem("history", "History", Icons.Filled.History),
+        NavItem("settings", "Settings", Icons.Filled.Settings),
         NavItem("about", "About", Icons.Filled.Info)
     )
 
@@ -83,6 +86,7 @@ fun KernelApp() {
             ) {
                 composable("capture") { CaptureScreen(viewModel) }
                 composable("history") { HistoryScreen(viewModel) }
+                composable("settings") { SettingsScreen(viewModel) }
                 composable("about") { AboutScreen() }
             }
         }
@@ -90,3 +94,4 @@ fun KernelApp() {
 }
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector)
+

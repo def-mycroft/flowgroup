@@ -13,7 +13,10 @@ import com.mfme.kernel.telemetry.NdjsonSink
 import com.mfme.kernel.telemetry.ReceiptEmitter
 import com.mfme.kernel.export.EnvelopeChainer
 import com.mfme.kernel.export.ObsidianExporter
+import com.mfme.kernel.export.VaultConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 object AppModule {
     fun provideDatabase(context: Context): KernelDatabase =
@@ -29,8 +32,9 @@ object AppModule {
     fun provideErrorEmitter(receiptEmitter: ReceiptEmitter): ErrorEmitter =
         ErrorEmitter(receiptEmitter)
 
-    fun provideEnvelopeChainer(context: Context): EnvelopeChainer {
-        val exporter = ObsidianExporter()
+    fun provideEnvelopeChainer(context: Context, config: VaultConfig): EnvelopeChainer {
+        val uri = runBlocking { config.treeUri.first() }
+        val exporter = ObsidianExporter(context, uri)
         return EnvelopeChainer(context, exporter)
     }
 
@@ -38,9 +42,11 @@ object AppModule {
         context: Context,
         db: KernelDatabase,
         emitter: ReceiptEmitter,
-        errorEmitter: ErrorEmitter
+        errorEmitter: ErrorEmitter,
+        config: VaultConfig,
     ): KernelRepository {
-        val chainer = provideEnvelopeChainer(context)
+        val chainer = provideEnvelopeChainer(context, config)
         return KernelRepositoryImpl(context, db, Dispatchers.IO, emitter, errorEmitter, db.spanDao(), chainer)
     }
 }
+
