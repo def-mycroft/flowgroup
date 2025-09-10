@@ -36,4 +36,12 @@ class KernelViewModel(private val repo: KernelRepository): ViewModel() {
     fun saveFromSensors(json: String, onDone: (SaveResult) -> Unit = {}) {
         viewModelScope.launch { onDone(repo.saveFromSensors(json)) }
     }
+
+    fun saveSmsOut(phone: String, body: String, onDone: (SaveResult) -> Unit = {}) {
+        viewModelScope.launch { onDone(repo.saveSmsOut(phone, body, java.time.Instant.now())) }
+    }
+
+    fun ingestSmsIn(sender: String, body: String, onDone: (SaveResult) -> Unit = {}) {
+        viewModelScope.launch { onDone(repo.ingestSmsIn(sender, body, java.time.Instant.now())) }
+    }
 }

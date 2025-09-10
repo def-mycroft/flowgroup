@@ -7,12 +7,15 @@ import com.mfme.kernel.data.telemetry.SpanDao
 import com.mfme.kernel.telemetry.ErrorEmitter
 import com.mfme.kernel.telemetry.ReceiptEmitter
 import com.mfme.kernel.telemetry.TelemetryCode
+import com.mfme.kernel.export.EnvelopeChainer
 import com.mfme.kernel.util.sha256OfStream
 import com.mfme.kernel.util.sha256OfUtf8
 import com.mfme.kernel.util.toHex
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.time.Instant
 
@@ -22,7 +25,8 @@ class KernelRepositoryImpl(
     private val io: CoroutineDispatcher,
     private val receiptEmitter: ReceiptEmitter,
     private val errorEmitter: ErrorEmitter,
-    private val spanDao: SpanDao
+    private val spanDao: SpanDao,
+    private val chainer: EnvelopeChainer
 ) : KernelRepository {
 
     override fun observeReceipts(): Flow<List<ReceiptEntity>> =
@@ -49,6 +53,7 @@ class KernelRepositoryImpl(
             val env = buildEnv()
             val (id, isNew) = persistEnvelope(env)
             val code = if (isNew) TelemetryCode.OkNew else TelemetryCode.OkDuplicate
+            chainer.chain(env)
             receiptEmitter.emitV2(
                 ok = true,
                 codeWire = code.wire,
@@ -178,6 +183,58 @@ class KernelRepositoryImpl(
                 metaJson = json
             )
         }
+
+    override suspend fun saveSmsOut(phone: String, body: String, sentAtUtc: Instant): SaveResult =
+        saveWithAdapter("sms_out") {
+            if (phone.isBlank() || body.isBlank()) throw IllegalArgumentException("empty_input")
+            val bytes = body.toByteArray(Charsets.UTF_8)
+            val sha = MessageDigest.getInstance("SHA-256").digest(bytes)
+            writePayload(toHex(sha), bytes)
+            Envelope(
+                sha256 = toHex(sha),
+                mime = "text/plain",
+                text = body,
+                filename = null,
+                sourcePkgRef = "sms_out",
+                receivedAtUtc = sentAtUtc,
+                metaJson = org.json.JSONObject(mapOf("phone" to phone)).toString()
+            )
+        }
+
+    override suspend fun ingestSmsIn(sender: String, body: String, receivedAtUtc: Instant): SaveResult =
+        saveWithAdapter("sms_in") {
+            if (sender.isBlank() || body.isBlank()) throw IllegalArgumentException("empty_input")
+            val bytes = body.toByteArray(Charsets.UTF_8)
+            val sha = MessageDigest.getInstance("SHA-256").digest(bytes)
+            writePayload(toHex(sha), bytes)
+            val meta = org.json.JSONObject(
+                mapOf(
+                    "sender" to sender,
+                    "body_sha256" to toHex(sha),
+                    "receivedAtUtc" to receivedAtUtc.toString()
+                )
+            )
+            Envelope(
+                sha256 = toHex(sha),
+                mime = "text/plain",
+                text = body,
+                filename = null,
+                sourcePkgRef = "sms_in",
+                receivedAtUtc = receivedAtUtc,
+                metaJson = meta.toString()
+            )
+        }
+
+    private fun writePayload(shaHex: String, bytes: ByteArray) {
+        val dir = File(context.filesDir, "envelopes/$shaHex").apply { mkdirs() }
+        val tmp = File(dir, "payload.txt.tmp")
+        val out = File(dir, "payload.txt")
+        FileOutputStream(tmp).use { fos ->
+            fos.write(bytes)
+            fos.fd.sync()
+        }
+        tmp.renameTo(out)
+    }
 
     private fun metaToJson(meta: Map<String, Any?>): String? {
         if (meta.isEmpty()) return null

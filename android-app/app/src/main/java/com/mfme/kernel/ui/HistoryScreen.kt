@@ -29,6 +29,7 @@ fun HistoryScreen(viewModel: KernelViewModel) {
     val filtered = when (filter) {
         1 -> receipts.filter { !it.ok }
         2 -> receipts.filter { it.ok }
+        3 -> receipts.filter { it.adapter == "sms_in" || it.adapter == "sms_out" }
         else -> receipts
     }
 
@@ -42,6 +43,7 @@ fun HistoryScreen(viewModel: KernelViewModel) {
                 TextButton(onClick = { filter = 0 }) { Text("All") }
                 TextButton(onClick = { filter = 1 }) { Text("Errors") }
                 TextButton(onClick = { filter = 2 }) { Text("Ok") }
+                TextButton(onClick = { filter = 3 }) { Text("SMS") }
             }
         }
         items(filtered, key = { it.id }) { r ->

@@ -4,7 +4,7 @@ import com.mfme.kernel.adapters.share.SharePayload
 import com.mfme.kernel.data.telemetry.ReceiptEntity
 import kotlinx.coroutines.flow.Flow
 
-interface KernelRepository {
+interface KernelRepository : KernelRepositorySms {
     suspend fun saveEnvelope(env: Envelope): SaveResult
     suspend fun saveFromShare(payload: SharePayload): SaveResult
     suspend fun saveFromCamera(bytes: ByteArray, meta: Map<String, Any?>): SaveResult
