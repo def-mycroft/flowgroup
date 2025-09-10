@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- App theme that pulls in Material3 and removes the action bar -->
-    <style name="Theme.Kernel" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- You can add color/shape overrides later; keep minimal for now -->
-    </style>
+    <style name="Theme.Kernel" parent="Theme.Material3.DayNight.NoActionBar"/>
 </resources>
