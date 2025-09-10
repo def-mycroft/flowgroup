@@ -91,6 +91,16 @@ fun CaptureScreen(viewModel: KernelViewModel) {
                         .padding(horizontal = 16.dp)
                 ) { Text("Sensors") }
             }
+            item {
+                Button(
+                    onClick = {
+                        viewModel.saveSmsOut("1234567890", "hi", ::handleResult)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) { Text("SMS") }
+            }
         }
     }
 }

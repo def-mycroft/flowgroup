@@ -11,6 +11,8 @@ import com.mfme.kernel.data.MIGRATION_3_4
 import com.mfme.kernel.telemetry.ErrorEmitter
 import com.mfme.kernel.telemetry.NdjsonSink
 import com.mfme.kernel.telemetry.ReceiptEmitter
+import com.mfme.kernel.export.EnvelopeChainer
+import com.mfme.kernel.export.ObsidianExporter
 import kotlinx.coroutines.Dispatchers
 
 object AppModule {
@@ -27,11 +29,18 @@ object AppModule {
     fun provideErrorEmitter(receiptEmitter: ReceiptEmitter): ErrorEmitter =
         ErrorEmitter(receiptEmitter)
 
+    fun provideEnvelopeChainer(context: Context): EnvelopeChainer {
+        val exporter = ObsidianExporter()
+        return EnvelopeChainer(context, exporter)
+    }
+
     fun provideRepository(
         context: Context,
         db: KernelDatabase,
         emitter: ReceiptEmitter,
         errorEmitter: ErrorEmitter
-    ): KernelRepository =
-        KernelRepositoryImpl(context, db, Dispatchers.IO, emitter, errorEmitter, db.spanDao())
+    ): KernelRepository {
+        val chainer = provideEnvelopeChainer(context)
+        return KernelRepositoryImpl(context, db, Dispatchers.IO, emitter, errorEmitter, db.spanDao(), chainer)
+    }
 }
