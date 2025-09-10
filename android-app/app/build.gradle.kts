@@ -23,7 +23,7 @@ android {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -49,7 +49,6 @@ android {
             isIncludeAndroidResources = true
         }
     }
-
 }
 
 dependencies {
@@ -71,10 +70,13 @@ dependencies {
 
     // --- Core ---
     implementation(project(":core"))
+    implementation(project(":vaultlogsurface"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.work.runtime.ktx)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
     testImplementation(libs.junit)
 
     testImplementation(libs.androidx.work.testing)
@@ -100,3 +102,4 @@ ksp {
     arg("room.incremental", "true")
     arg("room.expandProjection", "true")
 }
+

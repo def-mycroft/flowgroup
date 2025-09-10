@@ -1,17 +1,24 @@
 package com.mfme.kernel.ui
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mfme.kernel.data.Envelope
 import com.mfme.kernel.data.KernelRepository
 import com.mfme.kernel.data.SaveResult
+import com.mfme.kernel.export.VaultConfig
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class KernelViewModel(private val repo: KernelRepository): ViewModel() {
+class KernelViewModel(private val repo: KernelRepository, private val vaultConfig: VaultConfig) : ViewModel() {
     val envelopes = repo.observeEnvelopes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val receipts  = repo.observeReceipts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val vaultUri = vaultConfig.treeUri.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setVaultUri(uri: Uri) {
+        viewModelScope.launch { vaultConfig.setTreeUri(uri) }
+    }
 
     fun save(env: Envelope, onDone: (SaveResult) -> Unit = {}) {
         viewModelScope.launch { onDone(repo.saveEnvelope(env)) }
@@ -45,3 +52,4 @@ class KernelViewModel(private val repo: KernelRepository): ViewModel() {
         viewModelScope.launch { onDone(repo.ingestSmsIn(sender, body, java.time.Instant.now())) }
     }
 }
+
