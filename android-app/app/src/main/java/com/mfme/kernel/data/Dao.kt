@@ -16,4 +16,7 @@ interface EnvelopeDao {
 
     @Query("SELECT * FROM envelopes ORDER BY receivedAtUtc DESC")
     fun observeAll(): Flow<List<Envelope>>
+
+    @Query("SELECT * FROM envelopes")
+    suspend fun getAll(): List<Envelope>
 }
