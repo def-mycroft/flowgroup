@@ -18,3 +18,20 @@ Implement the backend worker that emits continuous GPS→SMS pings on a schedule
 
 **Delivery notes for Codex.** Name files `work/SmsLocationPingerWorker.kt`, `boot/BootReceiver.kt`, and `data/datastore/LocationPingPreferences.kt`. Do not invent new fields or Receipt codes; **conform to receding-bamboo 66af03c8** for schema, template, hashing, and codes. Keep all I/O off the main thread, and keep the worker self-healing: if config is missing or disabled, return `Result.success()` without side effects but still log a no-op span.
 
+---
+
+Notes appended from notes.md (decisions and constraints)
+
+- Timestamp in SMS body: render using sender’s local time in the message body; database/Receipt timestamps remain UTC.
+- Testing cadence: manual “Test now” is sufficient; no special 1-minute periodic periodicity is required beyond OS minimums.
+- Permissions: background location is acceptable for periodic pings (supply ForegroundInfo during fix acquisition if required by platform).
+- Recipients: support multiple destination E.164 numbers; send to all configured valid recipients per run.
+- Delivery receipts: do not integrate carrier delivery receipts (no READ_SMS); rely on internal Receipts pathway only.
+- Retry policy: if a run fails, do not chain immediate retries; allow the next scheduled interval to handle it.
+- Auto-stop: service remains enabled until explicitly toggled off (no auto-expiry window).
+- Poor accuracy: proceed with send even if accuracy is poor (>100 m).
+- Privacy: never store or emit raw SMS body in Receipts; mask destinations where displayed.
+- Self-test number: support a separate self-test number, optionally defaulting to the device’s own number if resolvable.
+- Boot behavior: on device restart, re-schedule if `ping_enabled=true` (BootReceiver reads DataStore and re-enqueues worker).
+- Data retention: keep Receipts/Envelopes indefinitely until user clears.
+- Rate limit guard: cap sends to a maximum of 3 messages within any rolling 15-minute window across all recipients to avoid over-sending.

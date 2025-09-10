@@ -103,3 +103,21 @@ Use the same UTC discipline, idempotent collapse semantics, and typed Receipts a
 
 **Style:** Kotlin, Jetpack Compose, coroutines/Flow, DataStore (Preferences or Proto), WorkManager. Keep functions small, pure where possible, and testable with fakes (Prefs, WorkScheduler, PingNowClient).
 
+---
+
+Notes appended from notes.md (decisions and constraints)
+
+- Timestamp in SMS body: use sender’s local time for the human-readable timestamp in the SMS message body. Persisted/Receipt timestamps remain UTC.
+- Testing cadence: manual “Test now” is sufficient; no special 1-minute periodic test mode required.
+- Permissions: background location permission is acceptable for periodic pings; foreground-only for one-shot tests.
+- Recipients: support multiple destination E.164 numbers (UI should manage a list; validate each entry). Do not enable until at least one valid number exists.
+- Delivery receipts: do not consume carrier delivery receipts for now; rely on internal Receipts only.
+- Retry policy: on failure, log and wait for the next configured interval (no backoff retry chain from UI).
+- Auto-stop: remain enabled until the user toggles off (no auto-expiry).
+- Poor accuracy: still send even if accuracy is poor (>100 m).
+- Privacy: never display or store full SMS body in UI history; mask destinations; status shows UTC timestamp + typed result only.
+- Self-test number: provide a separate field for a self-test number; default can infer device number if available.
+- History chip (distance delta): defer to later; keep status minimal for v1.
+- Boot behavior: on device restart, re-schedule if `ping_enabled=true`.
+- Data retention: keep Receipts/Envelopes indefinitely until user clears.
+- Rate limit guard: ensure no more than 3 messages are sent within any 15-minute window to avoid over-sending.

@@ -35,7 +35,7 @@ fun registerBuiltinPanels(viewModel: KernelViewModel, devMode: Boolean = true) {
     )
     PanelRegistry.register(
         PanelDescriptor("settings", "Settings", Icons.Filled.Settings) {
-            AboutScreen()
+            com.mfme.kernel.ui.settings.LocationPingSettingsScreen()
         }
     )
     PanelRegistry.register(
