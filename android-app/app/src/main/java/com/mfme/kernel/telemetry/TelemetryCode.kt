@@ -22,6 +22,16 @@ sealed interface TelemetryCode {
     override val wire = "ok_already_bound"
   }
 
+  // Cloud/Drive successes
+  data object OkUploaded : TelemetryCode {
+    override val ok = true
+    override val wire = "ok_uploaded"
+  }
+  data object OkDuplicateUpload : TelemetryCode {
+    override val ok = true
+    override val wire = "ok_duplicate_upload"
+  }
+
   // Errors
   data object PermissionDenied : TelemetryCode {
     override val ok = false
@@ -50,6 +60,23 @@ sealed interface TelemetryCode {
   data object ErrorNotFound : TelemetryCode {
     override val ok = false
     override val wire = "error_not_found"
+  }
+  // Cloud/Drive errors
+  data object PermissionDeniedAuth : TelemetryCode {
+    override val ok = false
+    override val wire = "permission_denied_auth"
+  }
+  data object NetworkBackoff : TelemetryCode {
+    override val ok = false
+    override val wire = "network_backoff"
+  }
+  data object ResolverError : TelemetryCode {
+    override val ok = false
+    override val wire = "resolver_error"
+  }
+  data class UnknownDriveError(val code: Int? = null, val name: String = "unknown_drive_error") : TelemetryCode {
+    override val ok = false
+    override val wire = name
   }
   data class Unknown(val name: String = "unknown") : TelemetryCode {
     override val ok = false
