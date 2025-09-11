@@ -31,6 +31,18 @@ sealed interface TelemetryCode {
     override val ok = true
     override val wire = "ok_duplicate_upload"
   }
+  data object OkDriveConnected : TelemetryCode {
+    override val ok = true
+    override val wire = "ok_drive_connected"
+  }
+  data object OkVerifyQueued : TelemetryCode {
+    override val ok = true
+    override val wire = "ok_verify_queued"
+  }
+  data object OkVerified : TelemetryCode {
+    override val ok = true
+    override val wire = "ok_verified"
+  }
 
   // Errors
   data object PermissionDenied : TelemetryCode {
@@ -79,6 +91,23 @@ sealed interface TelemetryCode {
     override val wire = name
   }
   data class Unknown(val name: String = "unknown") : TelemetryCode {
+    override val ok = false
+    override val wire = name
+  }
+  // Cloud/Drive UI/verify errors
+  data object ErrNoAccount : TelemetryCode {
+    override val ok = false
+    override val wire = "err_no_account"
+  }
+  data object ErrAuthCancelled : TelemetryCode {
+    override val ok = false
+    override val wire = "err_auth_cancelled"
+  }
+  data object ErrAuthNoScope : TelemetryCode {
+    override val ok = false
+    override val wire = "err_auth_no_scope"
+  }
+  data class ErrVerifyFailed(val name: String = "err_verify_failed") : TelemetryCode {
     override val ok = false
     override val wire = name
   }

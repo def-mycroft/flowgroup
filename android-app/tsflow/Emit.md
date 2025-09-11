@@ -1,22 +1,25 @@
-# TroubleshootFlow Update Guide — Emit
+# TroubleshootFlow — Emit
 
 Context
 - brief_id: imbued-sycamore · b5e49dc5-b13d-4a60-891d-2c5716a238cc
-- property_id: property-history-crash
-- updated: 2025-09-10
+- property_id: property-drive-connect-visible
+- updated: 2025-09-11
 
 Purpose
-- Produce typed Receipts and link them to spans so investigation and fix are observable and auditable.
+- Emit typed Receipts for connect/verify so the flow is auditable end‑to‑end and never silent.
 
 Receipt Shape (V2)
 - {ok, code, tsUtcIso, adapter, message?, envelopeId?, envelopeSha256?, spanId, receiptSha256}
 
-Update Checklist
-- Ensure save path emits Receipt on both success and failure (already via `KernelRepositoryImpl` and `ErrorEmitter`).
-- During repro/fix, include `brief_id` and `property_id` in `message` or a tag (until first-class fields exist).
-- Map outcomes to codes consistently: `ok_fixed`, `ok_explained`, `err_non_repro`, `err_invariant_fail`, `err_adapter`.
-- Verify rows in Room (`receiptDao().observeAll()`) and mirror lines in NDJSON sink.
-- Add message linking PR/commit that fixes the property (e.g., `fix: imbued-sycamore property-history-crash @<sha>`).
+Taxonomy (for this flow)
+- Adapter `cloud_ui`: `OkDriveConnected`, `ErrAuthCancelled`, `ErrAuthNoScope`.
+- Adapter `cloud_verify`: `OkVerifyQueued`, `OkVerified`, `ErrNoAccount`, `ErrVerifyFailed(code)`.
+
+Checklist
+- On connect result, emit `cloud_ui` receipts with brief/property tags in `message` until first‑class fields exist.
+- On verify, emit `cloud_verify` receipts for both no‑account and account present paths; if probing, include a compact code/message.
+- Ensure receipts are visible via Room (`receiptDao().observeAll()`) and NDJSON sink; spot‑check during tests.
+- Include a message linking the fixing commit: `fix: imbued-sycamore property-drive-connect-visible @<sha>`.
 
 Done When
-- Receipts exist for failing and passing runs with correct codes/bindings, and NDJSON export matches Room.
+- Receipts exist and are correctly coded for tap/cancel/verify outcomes in failing and passing runs, with stable NDJSON parity.

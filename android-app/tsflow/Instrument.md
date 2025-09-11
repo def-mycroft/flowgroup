@@ -1,23 +1,23 @@
-# TroubleshootFlow Update Guide — Instrument
+# TroubleshootFlow — Instrument
 
 Context
 - brief_id: imbued-sycamore · b5e49dc5-b13d-4a60-891d-2c5716a238cc
-- property_id: property-history-crash
-- updated: 2025-09-10
+- property_id: property-drive-connect-visible
+- updated: 2025-09-11
 
 Purpose
-- Bind spans/logs to the brief/property and ensure every run emits a Receipt (red or green) with lineage.
+- Ensure connect/verify paths never fail silently; all outcomes are observable via spans and typed Receipts.
 
-Span/Receipt Schema
-- Spans: {trace_id, case_id, brief_id, property_id, adapter_ids[], seed, rev, outcome, duration_ms}
-- Receipt V2: {ok, code, tsUtcIso, adapter, message?, envelopeId?, envelopeSha256?, spanId, receiptSha256}
+Spans / Receipts
+- Spans: {trace_id, brief_id, property_id, event, outcome?, duration_ms?}
+- Receipts (adapters):
+  - `cloud_ui`: `OkDriveConnected` | `ErrAuthCancelled` | `ErrAuthNoScope`
+  - `cloud_verify`: `OkVerifyQueued` | `OkVerified` | `ErrNoAccount` | `ErrVerifyFailed(code)`
 
-Update Checklist
-- Confirm `KernelRepositoryImpl.saveFromLocation` calls `ReceiptEmitter.begin/emitV2/end` (it does).  
-  File: `app/src/main/java/com/mfme/kernel/data/KernelRepositoryImpl.kt`.
-- For UI navigation to History, consider emitting a lightweight UI span via a UI-scoped emitter wrapper (adapter: `ui_history`).
-- Until dedicated fields exist, bind `brief_id`/`property_id` in the Receipt `message` (e.g., `"brief:imbued-sycamore property:property-history-crash"`).
-- Verify `ErrorEmitter` maps thrown errors into receipts with codes and closes the span.
+Checklist
+- Connect result handler (Cloud screen): emit span `cloud_connect_result` and a `cloud_ui` receipt with the outcome. Include `brief_id` and `property_id` in tags/message until first‑class fields exist.
+- Verify action: emit `cloud_verify_tap`; if no account → `ErrNoAccount`. If account present, probe/queue reconciler and emit `OkVerifyQueued` then `OkVerified` or `ErrVerifyFailed(code)`.
+- History chip status changes can remain silent, but consider a QA-only `OkCloudStatus(connected|not_connected)` receipt when toggled.
 
 Done When
-- Repro and fix runs yield traceable spans and a Receipt row linked (at least via message) to this brief/property and commit.
+- Connecting, cancelling, and verifying all produce spans+receipts linked to the brief/property, visible in Room and NDJSON sink.

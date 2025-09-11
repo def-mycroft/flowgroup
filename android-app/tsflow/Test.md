@@ -1,26 +1,28 @@
-# TroubleshootFlow Update Guide — Test
+# TroubleshootFlow — Test
 
 Context
 - brief_id: imbued-sycamore · b5e49dc5-b13d-4a60-891d-2c5716a238cc
-- property_id: property-history-crash
-- updated: 2025-09-10
+- property_id: property-drive-connect-visible
+- updated: 2025-09-11
 
 Purpose
-- Execute the property to prove red→green and guard against regression.
+- Prove the Drive connect/verify flow is observable (no silent no‑ops) and reflected across Cloud and History.
 
-Update Checklist
-- Build in-memory DB: `Room.inMemoryDatabaseBuilder(context, KernelDatabase::class.java).build()`.
-- Wire emitters: `ReceiptEmitter(db.receiptDao(), db.spanDao(), NdjsonSink(context))`, `ErrorEmitter`.
-- Create repo: `KernelRepositoryImpl(context, db, Dispatchers.IO, receiptEmitter, errorEmitter, db.spanDao(), EnvelopeChainer(...))`.
-- Repro: `repo.saveFromLocation("{}")`; then render `HistoryScreen(KernelViewModel(repo, VaultConfig(context)))`.
-- Assertions: no crash; `repo.observeReceipts().first().any { it.adapter == "location" } == true`.
+Checklist
+- Compose Robolectric test renders `CloudScreen()` with fake `TokenProvider` injected via seam; simulate:
+  - account selected → assert UI shows connected and a `cloud_ui:OkDriveConnected` receipt recorded.
+  - user cancels → assert `cloud_ui:ErrAuthCancelled`.
+- Tap ‘Verify now’ under both states:
+  - connected → assert `cloud_verify:OkVerifyQueued` and then `OkVerified` (if probe simulated ok).
+  - not connected → assert `cloud_verify:ErrNoAccount` and no enqueue.
+- Render `HistoryScreen(viewModel)` and assert chip text is “Drive: Connected” when fake says connected.
 
 Example Files
-- Unit test: `app/src/test/java/com/mfme/kernel/history/HistoryNoCrashPropertyTest.kt`.
-- Compose UI smoke: see pattern in `PluginPanelHostTest` to assert “Receipts” after switching tabs.
+- `app/src/test/java/com/mfme/kernel/cloud/CloudConnectPropertyTest.kt`
+- `app/src/test/java/com/mfme/kernel/cloud/HistoryCloudStatusPropertyTest.kt`
 
 CI Notes
-- Prefer Robolectric (`testDebugUnitTest` where appropriate). Avoid device-only dependencies.
+- Stick to Robolectric; avoid device-only Google services. Keep fakes pure; no network.
 
 Done When
-- Property test fails on main (red) and passes after the fix (green) with stability in CI.
+- Tests reproduce the original silent behavior (red) on current main and pass (green) after fixes, with receipts verifying outcomes.

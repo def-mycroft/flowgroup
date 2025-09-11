@@ -81,9 +81,9 @@ Coding/design agents surface and update the MFME briefs, attach runnable propert
 Brief Binding — imbued-sycamore
 
 - brief_id: imbued-sycamore · b5e49dc5-b13d-4a60-891d-2c5716a238cc
-- primary_property: property-history-crash
-- story: After saving a location, opening History should not crash and should show at least one Receipt/Envelope.
-- scope: Capture → History, `KernelRepositoryImpl.saveFromLocation`, `HistoryScreen`, Room flows.
-- telemetry: Link receipts/spans to this brief via message tags until dedicated fields exist.
+- primary_property: property-drive-connect-visible
+- story: After selecting a Google account on Cloud and tapping “Verify now”, the app shows connected state, emits a typed verify receipt, and History shows “Drive: Connected”.
+- scope: Cloud connect/verify, `DriveServiceFactory`/`TokenProvider`, `HistoryScreen` cloud chip.
+- telemetry: Link receipts/spans for connect/cancel/verify outcomes to this brief/property until dedicated fields exist.
 
 ---

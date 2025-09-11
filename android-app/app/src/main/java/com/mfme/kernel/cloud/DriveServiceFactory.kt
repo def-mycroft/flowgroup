@@ -9,12 +9,13 @@ import app.zero.core.cloud.DriveAdapter
  */
 object DriveServiceFactory {
     @Volatile private var cached: DriveAdapter? = null
+    @Volatile private var tokenOverride: TokenProvider? = null
 
     fun getAdapter(context: Context): DriveAdapter? {
         // If a Google account with Drive scope is available, provide real adapter; else null.
         // We avoid holding onto access tokens directly; adapter refreshes tokens as needed.
         return cached ?: synchronized(this) {
-            val provider = GoogleSignInTokenProvider(context)
+            val provider = tokenOverride ?: GoogleSignInTokenProvider(context)
             if (provider.hasAccount()) {
                 GoogleDriveAdapter(context.applicationContext, provider).also { cached = it }
             } else null
@@ -22,5 +23,10 @@ object DriveServiceFactory {
     }
 
     fun invalidate() { cached = null }
-}
 
+    /** Test-only: override the TokenProvider used to determine connection state. */
+    fun setTokenProviderOverrideForTests(fake: TokenProvider?) {
+        tokenOverride = fake
+        invalidate()
+    }
+}

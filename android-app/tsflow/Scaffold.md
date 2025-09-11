@@ -1,26 +1,33 @@
-# TroubleshootFlow Update Guide — Scaffold
+# TroubleshootFlow — Scaffold
 
 Context
 - brief_id: imbued-sycamore · b5e49dc5-b13d-4a60-891d-2c5716a238cc
-- property_id: property-history-crash
-- updated: 2025-09-10
+- property_id: property-drive-connect-visible
+- updated: 2025-09-11
 
 Purpose
-- Build a deterministic repro harness with seams to localize and reproduce the property in red.
+- Create a deterministic, injectable harness to reproduce the “connect Drive shows no feedback / verify no-op” behavior and flip it.
 
-Update Checklist
-- Seeds: fix time to `Instant.EPOCH` where used; stable PRNG not required here.
-- Harness: Robolectric + in-memory Room with real `KernelRepositoryImpl` (see `RepositoryIdempotencyTest`).
-- Fixtures: construct `ReceiptEmitter`, `ErrorEmitter`, `EnvelopeChainer` and DB DAOs as in tests.
-- Drive flow: call `repo.saveFromLocation("{}")`, then render `HistoryScreen(KernelViewModel(repo, VaultConfig(context)))`.
-- Telemetry: ensure `ReceiptEmitter.begin/end/emitV2` is exercised during save and visible via `observeReceipts()`.
+Seams to Introduce (no real network)
+- Auth seam: wrap `GoogleSignIn.getLastSignedInAccount()` behind an injectable `AuthFacade` or extend `TokenProvider` with an injectable fake in tests.
+- Drive seam: keep `DriveServiceFactory` but allow injection of `TokenProvider` for tests (fake returns `hasAccount=true/false`).
+- Telemetry seam: fake `ReceiptEmitter` that records emitted receipts in-memory for assertions.
+
+Harness
+- Use Robolectric for Compose UI tests and in-memory Room for persistence.
+- Render `CloudScreen()` and simulate:
+  - account selection success → fake `TokenProvider.hasAccount()` returns true;
+  - account cancellation → fake returns false.
+- Render `HistoryScreen(viewModel)` and assert that the cloud chip reflects the fake connection state.
+- Invoke “Verify now” and assert a receipt is recorded with the correct code.
 
 Artifacts
-- Test class: `app/src/test/java/com/mfme/kernel/history/HistoryNoCrashPropertyTest.kt`.
-- Optional Compose test that clicks “History” on `PluginPanelHost` and asserts “Receipts” appears.
+- Test classes under `app/src/test/java/com/mfme/kernel/cloud/`:
+  - `CloudConnectPropertyTest.kt` (connect/disconnect + verify receipts)
+  - `HistoryCloudStatusPropertyTest.kt` (chip reflects connection)
 
 Invariants
-- Same seed/setup → same outcome; Room is in-memory per test; no network.
+- Same fake inputs → same state/receipts; no device services or network calls.
 
 Done When
-- The harness consistently reproduces a crash (red) on main, with clear traces, or proves green after fix.
+- Tests can force red (no state/receipt) on current main and then pass (green) after the implementation fixes.

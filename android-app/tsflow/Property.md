@@ -1,40 +1,39 @@
-# TroubleshootFlow Update Guide — Property
+# TroubleshootFlow — Property
 
 Context
 - brief_id: imbued-sycamore · b5e49dc5-b13d-4a60-891d-2c5716a238cc
-- property_id: property-history-crash
-- updated: 2025-09-10
+- property_id: property-drive-connect-visible
+- updated: 2025-09-11
 
 Purpose
-- Encode a falsifiable claim that binds the user story to behavior and can be turned red→green.
+- Encode a falsifiable claim mapping the Drive connect story to observable behavior and receipts.
 
 Property Statement
-- Given a fresh in-memory database and default app state, when a single location capture is saved via `KernelRepository.saveFromLocation("{}")` and the History screen is opened immediately, then:  
-  - No uncaught exceptions occur during composition/render of `HistoryScreen`, and  
-  - At least one Receipt with `adapter == "location"` appears, and  
-  - An Envelope exists (observed via `observeEnvelopes`) consistent with the capture.
+- Given default app state with no signed-in account, when the user selects a Google account on Cloud screen and then taps “Verify now”, then:
+  - The Cloud screen reflects a connected state (shows the account or a ‘Connected’ indicator), and
+  - A typed Receipt is emitted for the verification attempt (`OkVerifyQueued|OkVerified|ErrNoAccount|ErrAuthScope`), and
+  - History shows the cloud chip as “Drive: Connected” when an account with Drive scope is present; otherwise “Not connected”.
 
 Scope
-- Surface: Capture → History panel navigation (`PanelsBuiltin.kt`, `HistoryScreen.kt`).
-- Data: Receipt V2 and Envelope entities (`KernelDatabase`, DAOs).
-- Adapters: `ReceiptEmitter`, `KernelRepositoryImpl.saveFromLocation`.
+- Surface: `CloudScreen` connect/verify, `HistoryScreen` cloud chip.
+- Seams: `DriveServiceFactory` and `TokenProvider.hasAccount()` as the single source of truth for connection.
+- Telemetry: typed receipts for connect/verify outcomes.
 
 Check Method
-- Deterministic test using Robolectric + in-memory Room (see `RepositoryIdempotencyTest`).
-- Seed time to `Instant.EPOCH` for capture actions where applicable.
-- Compose test can assert that “Receipts” header exists and that no crash occurs while collecting flows.
+- Compose/Robolectric test exercising the onboarding path:
+  - Simulate successful account selection (via injected seam; see Scaffold) → assert Cloud reflects connected and History chip shows connected.
+  - Tap “Verify now” → assert a Receipt is recorded with an expected code.
+  - Simulate sign-out → assert both Cloud and History reflect not connected and a Receipt is emitted on verify with `ErrNoAccount`.
 
 Assertions
-- Process alive (no thrown exception) while switching to History.
-- `observeReceipts().first()` contains a row with `adapter == "location"`.
-- UI smoke: History shows the “Receipts” section and no error banner.
+- Connection state is observable outside `CloudScreen` (i.e., `HistoryScreen` reflects it from the shared seam), and
+- Verify action never silently does nothing; it emits a Receipt with outcome.
 
 Edge Cases
-- Empty history (baseline), rapid navigation to History immediately after capture, large history list, and SMS-related receipts interleaving.
+- Account without Drive scope, cancelled chooser, toggling Wi‑Fi only has no effect on connection state but should not break verify.
 
 Telemetry
-- Spans/Receipts include: `{adapter: "location" | "ui_history", spanId, tsUtcIso, receiptSha256}`.
-- Bind `brief_id`/`property_id` via message or dedicated tags once available.
+- Every verify and connect/disconnect path yields a span and a typed Receipt bound to `{brief_id, property_id}`.
 
 Done When
-- The property is actionable and reproducible as a red on current main, with a clear path to flip it green.
+- The property runs red on current main if behavior is silent/incorrect and flips green after fixes; receipts/spans evidence the outcome.

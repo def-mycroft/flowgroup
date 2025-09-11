@@ -69,7 +69,7 @@ fun HistoryScreen(viewModel: KernelViewModel) {
         item {
             val tokens = KernelTheme.tokens
             Text("Receipts", style = tokens.typeScale.title)
-            val connected = GoogleSignIn.getLastSignedInAccount(context) != null
+            val connected = com.mfme.kernel.cloud.DriveServiceFactory.getAdapter(context) != null
             Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.sm)) {
                 AssistChip(
                     onClick = {},

@@ -10,6 +10,7 @@ object ServiceLocator {
     @Volatile private var db: KernelDatabase? = null
     @Volatile private var repo: KernelRepository? = null
     @Volatile private var vaultCfg: VaultConfig? = null
+    @Volatile private var receipts: com.mfme.kernel.telemetry.ReceiptEmitter? = null
 
     fun vaultConfig(appContext: Context): VaultConfig =
         vaultCfg ?: synchronized(this) { VaultConfig(appContext).also { vaultCfg = it } }
@@ -23,5 +24,11 @@ object ServiceLocator {
             AppModule.provideRepository(appContext, database, emitter, errorEmitter, config).also { repo = it }
         }
     }
-}
 
+    fun receiptEmitter(appContext: Context): com.mfme.kernel.telemetry.ReceiptEmitter {
+        val database = db ?: AppModule.provideDatabase(appContext).also { db = it }
+        return receipts ?: synchronized(this) {
+            AppModule.provideReceiptEmitter(appContext, database).also { receipts = it }
+        }
+    }
+}

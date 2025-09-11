@@ -29,8 +29,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
+import com.mfme.kernel.ServiceLocator
 import com.mfme.kernel.cloud.CloudPreferences
+import com.mfme.kernel.cloud.CloudActions
 import com.mfme.kernel.cloud.DriveServiceFactory
+import com.mfme.kernel.telemetry.TelemetryCode
 import com.mfme.kernel.ui.theme.KernelTheme
 import com.mfme.kernel.work.ReconcilerScheduler
 
@@ -54,8 +57,39 @@ fun CloudScreen() {
         runCatching { task.result }.onSuccess { account ->
             acct = account
             DriveServiceFactory.invalidate()
+            // Emit receipt for successful connect
+            val emitter = ServiceLocator.receiptEmitter(context)
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                val span = emitter.begin("cloud_ui")
+                val hasScope = account.grantedScopes?.any { it.scopeUri.contains("drive") } == true
+                val code = if (hasScope) TelemetryCode.OkDriveConnected else TelemetryCode.ErrAuthNoScope
+                emitter.emitV2(
+                    ok = code.ok,
+                    codeWire = code.wire,
+                    adapter = "cloud_ui",
+                    spanId = span.spanId,
+                    envelopeId = null,
+                    envelopeSha256 = null,
+                    message = "brief:imbued-sycamore property:property-drive-connect-visible"
+                )
+                emitter.end(span)
+            }
         }.onFailure {
-            // ignore; user cancelled or failed
+            // Emit cancellation/err receipt
+            val emitter = ServiceLocator.receiptEmitter(context)
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                val span = emitter.begin("cloud_ui")
+                emitter.emitV2(
+                    ok = TelemetryCode.ErrAuthCancelled.ok,
+                    codeWire = TelemetryCode.ErrAuthCancelled.wire,
+                    adapter = "cloud_ui",
+                    spanId = span.spanId,
+                    envelopeId = null,
+                    envelopeSha256 = null,
+                    message = "brief:imbued-sycamore property:property-drive-connect-visible"
+                )
+                emitter.end(span)
+            }
         }
     }
 
@@ -76,7 +110,12 @@ fun CloudScreen() {
                     launcher.launch(signInClient.signInIntent)
                 }
             }) { Text(if (connected) "Disconnect" else "Connect Drive") }
-            Button(onClick = { ReconcilerScheduler.verifyOnce(context) }) { Text("Verify now") }
+            Button(onClick = {
+                // Always emit a receipt for verify. Also enqueue reconciler as before.
+                val emitter = ServiceLocator.receiptEmitter(context)
+                CloudActions.verifyNow(context, emitter, scope)
+                ReconcilerScheduler.verifyOnce(context)
+            }) { Text("Verify now") }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Upload on Wi‑Fi only")
@@ -86,4 +125,3 @@ fun CloudScreen() {
         }
     }
 }
-
