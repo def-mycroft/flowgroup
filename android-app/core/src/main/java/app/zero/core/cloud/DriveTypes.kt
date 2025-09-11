@@ -9,7 +9,11 @@ data class UploadSpec(
     val mime: String,
     val ext: String?,
     val receivedAtUtc: String,
-    val idempotencyKey: String
+    val idempotencyKey: String,
+    // Optional absolute path to the local payload file to stream for upload (if applicable)
+    val localPath: String? = null,
+    // Optional progress callback invoked from adapter during upload
+    val onProgress: ((sent: Long, total: Long) -> Unit)? = null
 )
 sealed interface CloudAuthError {
     data class PermissionDeniedAuth(val reason: String): CloudAuthError

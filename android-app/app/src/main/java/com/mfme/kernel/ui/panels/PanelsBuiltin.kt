@@ -30,7 +30,7 @@ fun registerBuiltinPanels(viewModel: KernelViewModel, devMode: Boolean = true) {
     )
     PanelRegistry.register(
         PanelDescriptor("cloud", "Cloud", Icons.Filled.Cloud) {
-            Text("Cloud")
+            com.mfme.kernel.ui.cloud.CloudScreen()
         }
     )
     PanelRegistry.register(

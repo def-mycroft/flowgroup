@@ -4,12 +4,15 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import app.zero.core.cloud.DriveAdapter
+import com.mfme.kernel.cloud.DriveServiceFactory
 import com.mfme.kernel.data.KernelDatabase
 import com.mfme.kernel.data.cloud.CloudBinding
 import com.mfme.kernel.di.AppModule
 import com.mfme.kernel.telemetry.ReceiptEmitter
 import com.mfme.kernel.telemetry.TelemetryCode
 import java.time.Instant
+import java.time.ZoneOffset
+import java.time.temporal.ChronoField
 
 /**
  * Periodic worker that verifies cloud bindings against remote Drive state.
@@ -22,7 +25,8 @@ class ReconcilerWorker(appContext: Context, params: WorkerParameters) : Coroutin
         val span = emitter.begin("reconciler")
         val envelopeDao = db.envelopeDao()
         val bindingDao = db.cloudBindingDao()
-        val drive: DriveAdapter = driveAdapter()
+        val drive: DriveAdapter = DriveServiceFactory.getAdapter(applicationContext)
+            ?: return Result.success() // no account yet; skip
 
         // Tombstone orphan bindings
         bindingDao.findOrphans().forEach { bindingDao.deleteByEnvelopeId(it.envelopeId) }
@@ -31,7 +35,10 @@ class ReconcilerWorker(appContext: Context, params: WorkerParameters) : Coroutin
         for (env in envelopes) {
             val binding = bindingDao.findByEnvelopeId(env.id)
             if (binding == null) {
-                val ref = drive.findBySha256(env.sha256, "").getOrNull()
+                val y = env.receivedAtUtc.atZone(ZoneOffset.UTC).get(ChronoField.YEAR)
+                val m = env.receivedAtUtc.atZone(ZoneOffset.UTC).get(ChronoField.MONTH_OF_YEAR)
+                val folder = drive.ensureFolder(listOf("mfme", "ingest", "%04d".format(y), "%02d".format(m))).getOrElse { null }
+                val ref = folder?.let { drive.findBySha256(env.sha256, it.id).getOrNull() }
                 if (ref != null) {
                     val newBinding = CloudBinding(env.id, ref.id, Instant.now(), ref.md5, ref.bytes)
                     bindingDao.upsert(newBinding)
@@ -42,7 +49,10 @@ class ReconcilerWorker(appContext: Context, params: WorkerParameters) : Coroutin
             } else {
                 val meta = drive.getMetadata(binding.driveFileId).getOrNull()
                 if (meta == null) {
-                    val ref = drive.findBySha256(env.sha256, "").getOrNull()
+                    val y = env.receivedAtUtc.atZone(ZoneOffset.UTC).get(ChronoField.YEAR)
+                    val m = env.receivedAtUtc.atZone(ZoneOffset.UTC).get(ChronoField.MONTH_OF_YEAR)
+                    val folder = drive.ensureFolder(listOf("mfme", "ingest", "%04d".format(y), "%02d".format(m))).getOrElse { null }
+                    val ref = folder?.let { drive.findBySha256(env.sha256, it.id).getOrNull() }
                     if (ref != null) {
                         val rebound = CloudBinding(env.id, ref.id, Instant.now(), ref.md5, ref.bytes)
                         bindingDao.upsert(rebound)
@@ -60,5 +70,5 @@ class ReconcilerWorker(appContext: Context, params: WorkerParameters) : Coroutin
         return Result.success()
     }
 
-    private suspend fun driveAdapter(): DriveAdapter = TODO("Provide DriveAdapter")
+    // Adapter is provided by factory; no-op here.
 }

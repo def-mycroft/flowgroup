@@ -68,6 +68,10 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
 
     implementation("com.google.android.material:material:1.12.0")
+    // Google Sign-In for Drive auth
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    // HTTP client for Drive REST calls
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // --- Core ---
     implementation(project(":core"))

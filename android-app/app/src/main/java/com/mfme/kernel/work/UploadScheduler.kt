@@ -13,8 +13,10 @@ import androidx.work.workDataOf
  */
 object UploadScheduler {
     fun enqueue(context: Context, sha256: String) {
+        val wifiOnly = try { com.mfme.kernel.cloud.CloudPreferences(context).currentWifiOnly() } catch (_: Throwable) { true }
+        val netType = if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.UNMETERED)
+            .setRequiredNetworkType(netType)
             .build()
         val work = OneTimeWorkRequestBuilder<UploadWorker>()
             .setInputData(workDataOf(UploadWorker.KEY_SHA256 to sha256))

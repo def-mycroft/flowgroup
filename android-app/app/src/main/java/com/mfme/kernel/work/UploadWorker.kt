@@ -19,6 +19,13 @@ import com.mfme.kernel.telemetry.TelemetryCode.NetworkBackoff
 import com.mfme.kernel.telemetry.TelemetryCode.PermissionDeniedAuth
 import com.mfme.kernel.telemetry.TelemetryCode.UnknownDriveError
 import com.mfme.kernel.cloud.InMemoryDriveAdapter
+import com.mfme.kernel.cloud.DriveServiceFactory
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.work.ForegroundInfo
 import java.io.File
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -58,7 +65,16 @@ class UploadWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             return Result.success()
         }
 
-        val drive: DriveAdapter = InMemoryDriveAdapter.instance
+        // Acquire DriveAdapter from factory; falls back to in-memory when not connected
+        val drive: DriveAdapter = DriveServiceFactory.getAdapter(applicationContext) ?: InMemoryDriveAdapter.instance
+
+        // Foreground notification during upload (best-effort)
+        val notifyId = ("upload:" + sha).hashCode()
+        val channelId = "drive_uploads"
+        val label = envelope.filename ?: sha
+        val totalInt = bytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val builder = createProgressBuilder(channelId, label, 0, totalInt)
+        try { setForeground(ForegroundInfo(notifyId, builder.build())) } catch (_: Throwable) {}
         // Resolve folder: mfme/ingest/YYYY/MM
         val received = envelope.receivedAtUtc
         val y = received.atZone(ZoneOffset.UTC).get(ChronoField.YEAR)
@@ -88,7 +104,16 @@ class UploadWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             mime = mime,
             ext = ext,
             receivedAtUtc = envelope.receivedAtUtc.toString(),
-            idempotencyKey = sha
+            idempotencyKey = sha,
+            localPath = payload.absolutePath,
+            onProgress = { sent, total ->
+                val max = total.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                val prog = sent.coerceAtMost(total).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                try {
+                    val n = builder.setProgress(max, prog, false).build()
+                    NotificationManagerCompat.from(applicationContext).notify(notifyId, n)
+                } catch (_: Throwable) {}
+            }
         )
         val uploaded = drive.uploadResumable(spec).getOrElse { err ->
             val code = when (err) {
@@ -110,6 +135,8 @@ class UploadWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         val binding = CloudBinding(envelope.id, uploaded.id, Instant.now(), meta.md5, meta.bytes)
         bindingDao.upsert(binding)
         emitter.emitV2(true, OkUploaded.wire, "uploader", span.spanId, envelope.id, sha, null)
+        // User-visible confirmation: show a small notification on verified upload
+        try { showUploadedNotification(envelope.filename ?: sha) } catch (_: Throwable) { /* best-effort */ }
         emitter.end(span)
         return Result.success()
     }
@@ -133,5 +160,55 @@ class UploadWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
 
     companion object {
         const val KEY_SHA256 = "sha256"
+    }
+
+    private fun showUploadedNotification(label: String) {
+        val channelId = "drive_uploads"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "Drive Uploads", NotificationManager.IMPORTANCE_DEFAULT)
+            val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+            .setContentTitle("Uploaded to Drive")
+            .setContentText("$label uploaded successfully")
+            .setAutoCancel(true)
+            .build()
+        with(NotificationManagerCompat.from(applicationContext)) {
+            notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notification)
+        }
+    }
+
+    private fun createForegroundInfo(label: String): ForegroundInfo {
+        val channelId = "drive_uploads"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "Drive Uploads", NotificationManager.IMPORTANCE_LOW)
+            val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentTitle("Uploading to Drive")
+            .setContentText(label)
+            .setOngoing(true)
+            .setProgress(0, 0, true)
+            .build()
+        val id = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
+        return ForegroundInfo(id, notification)
+    }
+
+    private fun createProgressBuilder(channelId: String, label: String, progress: Int, max: Int): NotificationCompat.Builder {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "Drive Uploads", NotificationManager.IMPORTANCE_LOW)
+            val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(channel)
+        }
+        return NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentTitle("Uploading to Drive")
+            .setContentText(label)
+            .setOngoing(true)
+            .setProgress(max, progress, false)
     }
 }
