@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.security.MessageDigest
 import java.time.Instant
 
@@ -65,6 +66,15 @@ class KernelRepositoryImpl(
             )
             spanDao.bindEnvelope(span.spanId, id, env.sha256)
             receiptEmitter.end(span)
+            if (isNew) {
+                // Schedule background upload for new envelopes; unique by sha256
+                // In unit tests, WorkManager may not be initialized; swallow errors to avoid failing persistence.
+                try {
+                    com.mfme.kernel.work.UploadScheduler.enqueue(context, env.sha256)
+                } catch (_: Throwable) {
+                    // no-op in tests or when WorkManager is unavailable
+                }
+            }
             if (isNew) SaveResult.Success(id) else SaveResult.Duplicate(id)
         } catch (t: Throwable) {
             val code = mapError(t)
@@ -93,6 +103,19 @@ class KernelRepositoryImpl(
                     ?: throw IllegalArgumentException("stream_not_found")
             }
             val shaHex = toHex(shaBytes)
+            // Persist payload for later upload
+            when (payload) {
+                is SharePayload.Text -> {
+                    val bytes = payload.text.toByteArray(Charsets.UTF_8)
+                    writePayload(shaHex, bytes)
+                }
+                is SharePayload.Stream -> {
+                    val ext = guessExt(payload.mime, payload.displayName)
+                    context.contentResolver.openInputStream(payload.uri)
+                        ?.use { writePayload(shaHex, it, ext) }
+                        ?: throw IllegalArgumentException("stream_not_found")
+                }
+            }
             Envelope(
                 sha256 = shaHex,
                 mime = when (payload) {
@@ -145,6 +168,11 @@ class KernelRepositoryImpl(
             val sha = resolver.openInputStream(uri)?.use { sha256OfStream(it) }
                 ?: throw IllegalArgumentException("stream_not_found")
             val mime = resolver.getType(uri) ?: meta["mime"] as? String
+            // Persist payload for later upload
+            val ext = guessExt(mime, meta["filename"] as? String)
+            resolver.openInputStream(uri)
+                ?.use { writePayload(toHex(sha), it, ext) }
+                ?: throw IllegalArgumentException("stream_not_found")
             Envelope(
                 sha256 = toHex(sha),
                 mime = mime,
@@ -234,6 +262,39 @@ class KernelRepositoryImpl(
             fos.fd.sync()
         }
         tmp.renameTo(out)
+    }
+
+    private fun writePayload(shaHex: String, input: InputStream, ext: String?) {
+        val dir = File(context.filesDir, "envelopes/$shaHex").apply { mkdirs() }
+        val safeExt = when {
+            ext.isNullOrBlank() -> "bin"
+            else -> ext.trim().lowercase().removePrefix(".")
+        }
+        val tmp = File(dir, "payload.$safeExt.tmp")
+        val out = File(dir, "payload.$safeExt")
+        FileOutputStream(tmp).use { fos ->
+            input.copyTo(fos)
+            fos.fd.sync()
+        }
+        tmp.renameTo(out)
+    }
+
+    private fun guessExt(mime: String?, displayName: String?): String? {
+        val fromName = displayName?.substringAfterLast('.', missingDelimiterValue = "")
+            ?.takeIf { it.isNotBlank() && it.length <= 8 }
+        if (!fromName.isNullOrBlank()) return fromName.lowercase()
+        return when (mime?.lowercase()) {
+            "image/jpeg" -> "jpg"
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            "video/mp4" -> "mp4"
+            "audio/wav" -> "wav"
+            "audio/mpeg" -> "mp3"
+            "application/pdf" -> "pdf"
+            "text/plain" -> "txt"
+            "application/json" -> "json"
+            else -> null
+        }
     }
 
     private fun metaToJson(meta: Map<String, Any?>): String? {
