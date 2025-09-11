@@ -72,6 +72,8 @@ class UploadWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
         val notifyId = ("upload:" + sha).hashCode()
         val channelId = "drive_uploads"
         val label = envelope.filename ?: sha
+        // Determine payload size before building the progress notification
+        val bytes = payload.length()
         val totalInt = bytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
         val builder = createProgressBuilder(channelId, label, 0, totalInt)
         try { setForeground(ForegroundInfo(notifyId, builder.build())) } catch (_: Throwable) {}
@@ -94,7 +96,6 @@ class UploadWorker(appContext: Context, params: WorkerParameters) : CoroutineWor
             return Result.success()
         }
 
-        val bytes = payload.length()
         val ext = payload.extensionIfAny()
         val mime = envelope.mime ?: "application/octet-stream"
         val spec = UploadSpec(

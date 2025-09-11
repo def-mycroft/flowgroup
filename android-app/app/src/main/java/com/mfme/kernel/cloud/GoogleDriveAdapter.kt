@@ -12,6 +12,7 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import okio.buffer
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -99,7 +100,8 @@ class GoogleDriveAdapter(
         }
         // Upload media bytes
         val base: RequestBody = file.asRequestBody((spec.mime.ifBlank { "application/octet-stream" }).toMediaTypeOrNull())
-        val media: RequestBody = if (spec.onProgress != null) ProgressRequestBody(base, spec.bytes, spec.onProgress) else base
+        // Avoid smart-cast on cross-module public property by capturing locally
+        val media: RequestBody = spec.onProgress?.let { ProgressRequestBody(base, spec.bytes, it) } ?: base
         val putReq = Request.Builder()
             .url(uploadUrl)
             .put(media)
@@ -191,7 +193,8 @@ class GoogleDriveAdapter(
                     if (total > 0) onProgress(written.coerceAtMost(total), total)
                 }
             }
-            val buffered = okio.Okio.buffer(forwarding)
+            // Use Okio 3 extension instead of deprecated Okio.buffer(sink)
+            val buffered = forwarding.buffer()
             delegate.writeTo(buffered)
             buffered.flush()
         }
