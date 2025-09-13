@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 object CloudActions {
     private const val BRIEF_TAG = "brief:imbued-sycamore property:property-drive-connect-visible"
 
-    fun verifyNow(context: Context, emitter: ReceiptEmitter, scope: CoroutineScope) {
+    fun verifyNow(context: Context, emitter: ReceiptEmitter, scope: CoroutineScope, background: Boolean = true) {
         // Always emit a receipt; never silent.
         val adapter = DriveServiceFactory.getAdapter(context)
         val span = kotlinx.coroutines.runBlocking { emitter.begin("cloud_verify") }
@@ -45,35 +45,37 @@ object CloudActions {
             emitter.end(span)
         }
 
-        // Probe in background (non-blocking UI). Uses adapter.probe(), which for our implementation
-        // only checks token availability via TokenProvider (no network in tests).
-        scope.launch {
-            kotlin.runCatching {
-                val verifySpan = emitter.begin("cloud_verify")
-                val result = DriveServiceFactory.getAdapter(context)?.probe()
-                if (result?.isSuccess == true) {
-                    emitter.emitV2(
-                        ok = TelemetryCode.OkVerified.ok,
-                        codeWire = TelemetryCode.OkVerified.wire,
-                        adapter = "cloud_verify",
-                        spanId = verifySpan.spanId,
-                        envelopeId = null,
-                        envelopeSha256 = null,
-                        message = BRIEF_TAG
-                    )
-                } else {
-                    emitter.emitV2(
-                        ok = TelemetryCode.ErrVerifyFailed().ok,
-                        codeWire = TelemetryCode.ErrVerifyFailed().wire,
-                        adapter = "cloud_verify",
-                        spanId = verifySpan.spanId,
-                        envelopeId = null,
-                        envelopeSha256 = null,
-                        message = BRIEF_TAG
-                    )
-                }
-                emitter.end(verifySpan)
+        // Probe for verification. In production we do this in the background; in tests we can run inline.
+        val probeWork: suspend () -> Unit = {
+            val verifySpan = emitter.begin("cloud_verify")
+            val result = DriveServiceFactory.getAdapter(context)?.probe()
+            if (result?.isSuccess == true) {
+                emitter.emitV2(
+                    ok = TelemetryCode.OkVerified.ok,
+                    codeWire = TelemetryCode.OkVerified.wire,
+                    adapter = "cloud_verify",
+                    spanId = verifySpan.spanId,
+                    envelopeId = null,
+                    envelopeSha256 = null,
+                    message = BRIEF_TAG
+                )
+            } else {
+                emitter.emitV2(
+                    ok = TelemetryCode.ErrVerifyFailed().ok,
+                    codeWire = TelemetryCode.ErrVerifyFailed().wire,
+                    adapter = "cloud_verify",
+                    spanId = verifySpan.spanId,
+                    envelopeId = null,
+                    envelopeSha256 = null,
+                    message = BRIEF_TAG
+                )
             }
+            emitter.end(verifySpan)
+        }
+        if (background) {
+            scope.launch { kotlin.runCatching { probeWork() } }
+        } else {
+            kotlinx.coroutines.runBlocking { kotlin.runCatching { probeWork() } }
         }
     }
 }
