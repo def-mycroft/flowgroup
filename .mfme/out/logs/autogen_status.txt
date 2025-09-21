@@ -1,0 +1,1 @@
+Autogen pass skipped — no OPENAI_API_KEY detected. Remaining in dry-run documentation mode.

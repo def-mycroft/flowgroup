@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MFME Receipt",
+  "type": "object",
+  "required": ["tag", "prompt", "step", "timestamp", "status"],
+  "properties": {
+    "tag": {
+      "type": "string",
+      "description": "Session tag identifying the ritual run."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Prompt identifier responsible for the action."
+    },
+    "step": {
+      "type": "string",
+      "description": "Step key or slug, e.g. step01_scaffold."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when the receipt was written."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "warn", "error"],
+      "description": "Outcome classification for the step."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable note about what happened."
+    },
+    "artifact": {
+      "type": ["string", "null"],
+      "description": "Relative path to the primary artifact, when applicable."
+    },
+    "checksum": {
+      "type": ["string", "null"],
+      "description": "SHA-256 checksum of the artifact for integrity verification."
+    },
+    "autogen": {
+      "type": "string",
+      "description": "Whether autogen actions were enabled for the run."
+    }
+  },
+  "additionalProperties": false
+}

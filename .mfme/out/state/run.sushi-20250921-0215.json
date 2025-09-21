@@ -1,0 +1,16 @@
+{
+  "session_tag": "sushi-20250921-0215",
+  "prompt": "00_bootstrap_flowgroup",
+  "start": "2025-09-21T03:16:50Z",
+  "end": "2025-09-21T03:16:56Z",
+  "status": "complete",
+  "autogen_mode": "dry_run",
+  "paths": {
+    "prompts": ".mfme/out/prompts",
+    "artifacts": ".mfme/out/artifacts",
+    "receipts": ".mfme/out/receipts",
+    "logs": ".mfme/out/logs",
+    "state": ".mfme/out/state"
+  },
+  "duration_seconds": 6
+}

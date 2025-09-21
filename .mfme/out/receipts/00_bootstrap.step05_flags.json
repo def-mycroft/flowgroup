@@ -1,0 +1,11 @@
+{
+  "tag": "sushi-20250921-0215",
+  "prompt": "00_bootstrap_flowgroup",
+  "step": "step05_flags",
+  "timestamp": "2025-09-21T03:16:54Z",
+  "status": "ok",
+  "description": "documented development flags",
+  "artifact": ".mfme/out/state/dev.flags.json",
+  "checksum": "e0a042f6f322f641edfb4f19eb0dfc5b4aeb362102921a59f5161823c4aaf467",
+  "autogen": "dry_run"
+}
