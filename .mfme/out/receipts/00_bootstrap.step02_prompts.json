@@ -1,0 +1,11 @@
+{
+  "tag": "sushi-20250921-0215",
+  "prompt": "00_bootstrap_flowgroup",
+  "step": "step02_prompts",
+  "timestamp": "2025-09-21T03:16:50Z",
+  "status": "ok",
+  "description": "recorded dry-run prompts",
+  "artifact": ".mfme/out/prompts",
+  "checksum": null,
+  "autogen": "dry_run"
+}

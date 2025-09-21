@@ -1,0 +1,11 @@
+{
+  "tag": "sushi-20250921-0215",
+  "prompt": "00_bootstrap_flowgroup",
+  "step": "step01_scaffold",
+  "timestamp": "2025-09-21T03:16:50Z",
+  "status": "ok",
+  "description": "created sushi output scaffolding",
+  "artifact": ".mfme/out",
+  "checksum": null,
+  "autogen": "dry_run"
+}

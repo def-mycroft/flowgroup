@@ -1,0 +1,11 @@
+{
+  "tag": "sushi-20250921-0215",
+  "prompt": "00_bootstrap_flowgroup",
+  "step": "step06_debrief",
+  "timestamp": "2025-09-21T03:16:55Z",
+  "status": "ok",
+  "description": "captured debrief summary",
+  "artifact": ".mfme/out/state/debrief.sushi-20250921-0215.md",
+  "checksum": "399cb81eea3e80af5cb1911c923778221027a6d42ce36c70c3587983da2fe816",
+  "autogen": "dry_run"
+}
